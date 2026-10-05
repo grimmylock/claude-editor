@@ -1,64 +1,200 @@
-# chengfeng-videocut-skills
+# Videocut Skills
 
-chengfeng-videocut 的公开 **Codex Plugin 安装入口**。软件本体 Runtime / Studio 的源码与发行产物在 [chengfeng-videocut](https://github.com/Agentchengfeng/chengfeng-videocut)。
+> 用 Claude Code Skills 构建的视频剪辑 Agent，专为口播视频设计
 
-Plugin 提供给 Agent 的方法和确认工具；Runtime 执行工程操作并提供工作台。安装 Plugin、准备 Runtime、完成视频是三件不同的事。本仓不是已经停用的链接页，也不是新的独立 Skills 全套下载器。
+## 为什么做这个？
 
-## 本次默认 Skill 预发行
+剪映的"智能剪口播"有两个痛点：
+1. **无法理解语义**：重复说的句子、说错后纠正的内容，它识别不出来
+2. **字幕质量差**：专业术语（Claude Code、MCP、API）经常识别错误
 
-Plugin **0.10.11** / bootstrap **0.5.3** 默认增加「工作台操作」Skill：定位词句、覆盖或移除画面、删除明确片段、拆分裁剪移动已有片段、画布适配及回读。方法来自[独立仓库](https://github.com/Agentchengfeng/chengfeng-videocut-workbench)的固定版本，不在 Plugin 中另写一套。
+这个 Agent 用 Claude 的语义理解能力解决第一个问题，用自定义词典解决第二个问题。
 
-**兼容提醒：新 Skill 要求 Runtime >=0.5.9 且实际 workbench 能力匹配。当前公开下载仍是 v0.4.11，不满足新命令要求。** 缺能力时只报告并停止，不自动安装、升级或修改工程。此次发布的是方法和默认入口，不是新的 Runtime 发行。
+## 效果演示
 
-### 本次固定身份
+**输入**：19 分钟口播原片（各种口误、卡顿、重复）
 
-| 对象 | 固定身份 |
-|---|---|
-| Plugin | 0.10.11 |
-| Plugin 内容提交 | `d4580d8a0cef4fa34558b068945575d03e4c63ee` |
-| 带来源回执的安装快照 | `6d798efb9940946c994d1f3e59f8ff2ea7446c31` |
-| 工作台操作方法 | `v0.1.0-beta.1` / `e9e78e0f3aefca1c38a1157817cc411e9757bb12` |
-| 配套 Runtime | [v0.4.11](https://github.com/Agentchengfeng/chengfeng-videocut/releases/tag/v0.4.11) |
+**输出**：
+- 自动识别 608 处问题（静音 114 + 口误/重复 494）
+- 剪辑后视频 72MB
+- 全程 AI 辅助，人工只需确认
 
-`installer-manifest.json` 同时固定 marketplaceRef 和 pluginRef；bootstrap 自己的提交与 Plugin 快照不是同一个概念。安装时不跟随 main/stable 漂移，也不重写已发布标签或同版本内容。
+## 核心功能
 
-本次 bootstrap 修订单独形成发布提交；对应完整 SHA 由 [v0.10.11 预发行回执](https://github.com/Agentchengfeng/chengfeng-videocut-skills/releases/tag/v0.10.11) 提供，不把 Plugin 安装快照误当成 bootstrap 提交。`stable` 是可变发现入口，不能代替上表安装身份。**本轮不推进 stable**，不移动旧标签，也不替换用户已安装的 Plugin 或 Runtime。
+| 功能 | 说明 | 对比剪映 |
+|------|------|----------|
+| **语义理解** | AI 逐句分析，识别重说/纠正/卡顿 | 只能模式匹配 |
+| **静音检测** | >0.3s 自动标记，可调阈值 | 固定阈值 |
+| **重复句检测** | 相邻句开头≥5字相同 → 删前保后 | 无此功能 |
+| **句内重复** | "好我们接下来好我们接下来做" → 删重复部分 | 无此功能 |
+| **词典纠错** | 自定义专业术语词典 | 无此功能 |
+| **自更新** | 记住你的偏好，越用越准 | 无此功能 |
 
-默认提供的七个入口：剪口播、字幕、画面、导出、上报 Bug、检查更新，以及新加入的工作台操作。前六项是当前发行保留的入口，不等于未来功能合并后的产品名单。工作台操作可由 `$chengfeng-videocut:chengfeng-videocut-workbench` 选择；安装和新任务发现仍分别验证，默认提供不保证现有桌面会话热加载。
+## 快速开始
 
-## 安装与检查
+### 1. 安装 Skills
 
-前提：Node.js 18+、Git，以及已登录且支持 `codex plugin` 命令的 Codex CLI。先审阅取得的固定源码，再在该目录运行：
-
-```sh
-node bin/install.cjs install --dry-run
-node bin/install.cjs install
-node bin/install.cjs doctor
+```bash
+# 克隆到 Claude Code skills 目录
+git clone https://github.com/Ceeon/videocut-skills.git ~/.claude/skills/videocut
 ```
 
-GitHub npx 的具体可用命令以该次 Release 回执中的实测结果为准。npm 10.9.2 在按完整提交进行 Git 打包时可能报 `GitFetcher requires an Arborist constructor`；这是引导获取失败，尚未安装 Plugin。可按 Release 给定的完整提交取得源码、核对 HEAD 后执行上面的 Node 命令；不要改用未锁定的 main/stable，也不要把上表 Plugin 快照当成本次 bootstrap 修复的提交。
+### 2. 配置 API Key
 
-安装器只调用宿主支持的 Plugin 命令，并回读来源、克隆提交与安装状态。已存在同名或来源不明的安装会拒绝覆盖；不要先删除安装目录来绕过检查。它不准备或启动 Runtime。新任务能否发现 Skill 与 MCP，仍须分别验收，已有会话可能需要重新打开。
+```bash
+cd ~/.claude/skills/videocut
+cp .env.example .env
+# 编辑 .env，填入火山引擎 API Key
+```
 
-既有六个入口加载后，需要工作台时按包内 `references/runtime-and-product-contract.md` 和 `scripts/ensure-runtime.cjs` 准备固定配套 Runtime；以实际输出确认版本、能力和缺少的依赖。缺失 Runtime 的下载仍固定到 v0.4.11；该 CLI 安装器仍需 Node 或已有 Bun 启动，随后可在 macOS arm64 从固定官方资产及 SHA-256 准备产品私有 Bun，并供持久启动入口复用，不修改全局 Bun 或 shell 配置。既有健康且能力满足要求的 0.4.10+ Runtime 可继续复用；不因此自动覆盖升级。**新工作台操作不走这条旧版本准备路径**，只按自身 >=0.5.9 和实际能力预检，缺少时停止。媒体依赖、宿主加载、常驻服务与实际剪辑应分别验收；本次不提供新的 Runtime、DMG 或 EXE。
+### 3. 安装环境
 
-## 独立小黑 Skill 的兼容边界
+打开 Claude Code，输入：
 
-[chengfeng-videocut-xiaohei](https://github.com/Agentchengfeng/chengfeng-videocut-xiaohei) 独立维护动画方法及 ChatCut 适配；它不等于本 Plugin 内的历史画面方法。
+```
+/videocut:安装
+```
 
-独立小黑的新 Runtime 路线要求 >=0.5.9 以及 `workbench commands/connect`、`module publish/get`、`workbench visuals-put` 等实际接口。**Runtime 0.4.10 与本次 0.4.11 安装修复均不满足此合同。** 仅安装本 Plugin 不能宣称接通独立小黑，也不能反复重装或降低版本门槛绕过检查。
+AI 会自动：
+- 检查 Python、FFmpeg、Node.js
+- 安装 FunASR（口误识别模型，约 2GB）
+- 安装 Whisper large-v3（字幕模型，约 3GB）
 
-已有 ChatCut 等合格工作台时沿用其可验证适配；需要新版 Runtime 路线时等待经过验证的配套发行或明确适配。用户明确只要独立动画时，可交付 HTML/SVG，不冒称已进入剪辑工程。
+## 使用流程
 
-## 仓库分工
+```
+┌─────────────────────────────────────────────────────────┐
+│  /videocut:安装  →  首次使用，安装环境和模型            │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│  /videocut:剪口播 视频.mp4                              │
+│                                                         │
+│  1. 提取音频 → 上传云端                                 │
+│  2. 火山引擎转录 → 字级别时间戳                         │
+│  3. AI 审核：静音/口误/重复/语气词                      │
+│  4. 生成审核网页 → 浏览器打开                           │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│  【人工审核 + 执行剪辑】                                │
+│                                                         │
+│  - 单击跳转播放                                         │
+│  - 双击选中/取消                                        │
+│  - Shift 拖动多选                                       │
+│  - 确认后点击「执行剪辑」→ 自动 FFmpeg 剪辑            │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│  /videocut:字幕                                         │
+│                                                         │
+│  - Whisper 转录                                         │
+│  - 词典纠错（Claude Code → claude code）                │
+│  - 人工确认 → 烧录字幕                                  │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│  /videocut:自更新  （可选）                             │
+│                                                         │
+│  告诉 AI 你的偏好，它会记住：                           │
+│  - "静音阈值改成 1 秒"                                  │
+│  - "保留适量嗯作为过渡"                                 │
+└─────────────────────────────────────────────────────────┘
+```
 
-- 本仓：当前公开 Codex Plugin、固定安装入口、包内使用方法及来源回执。
-- [Runtime 主仓](https://github.com/Agentchengfeng/chengfeng-videocut)：软件源码、Studio、Runtime 安装与发行。
-- [安装与接入 Skill](https://github.com/Agentchengfeng/chengfeng-videocut-install)：独立安装方法与本地文件包工具；不是已经实现的远端全套安装事务。
-- 其他独立 Skills：各自维护和发布，兼容性逐项验证；不以本 Plugin 已启用代替全部独立包可用。
+## Skill 清单
 
-## 历史与来源
+| Skill | 功能 | 输入 | 输出 |
+|-------|------|------|------|
+| `安装` | 环境准备 | 无 | 安装日志 |
+| `剪口播` | 转录 + AI 审核 + 剪辑 | 视频文件 | 剪辑后视频 |
+| `字幕` | 生成字幕 | 视频文件 | 带字幕视频 |
+| `自更新` | 记录偏好 | 用户反馈 | 更新规则文件 |
 
-旧版本从 [Releases](https://github.com/Agentchengfeng/chengfeng-videocut-skills/releases) 或固定提交查看。历史说明、迁移规划与当前已验证的发行范围分开，不自动迁移用户工程或安装。
+## 目录结构
 
-保留 [LICENSE](LICENSE)、[NOTICE.md](NOTICE.md) 与 [CITATION.cff](CITATION.cff)。维护者：**成峰 / AI产品自由**。[GitHub](https://github.com/Agentchengfeng) · [X](https://x.com/chengfeng240928)。关注不是安装条件。
+```
+videocut/
+├── README.md           # 本文件
+├── .env.example        # API Key 模板
+├── 安装/               # 环境安装 skill
+├── 剪口播/             # 核心：转录 + AI 审核 + 剪辑
+│   ├── SKILL.md        # 流程说明
+│   ├── *.js            # 脚本（生成字幕、审核页面、服务器）
+│   ├── *.sh            # 脚本（转录、剪辑）
+│   └── 用户习惯/       # 审核规则（可自定义）
+│       ├── 1-核心原则.md       # 删前保后
+│       ├── 2-语气词检测.md     # 嗯啊呃
+│       ├── 3-静音段处理.md     # >0.3s 删除
+│       ├── 4-重复句检测.md     # 相邻句开头相同
+│       ├── 5-卡顿词.md         # 那个那个、就是就是
+│       ├── 6-句内重复检测.md   # A+中间+A 模式
+│       ├── 7-连续语气词.md     # 嗯啊、啊呃
+│       └── 8-重说纠正.md       # 部分重复、否定纠正
+├── 字幕/               # 字幕生成与烧录
+│   └── 词典.txt        # 自定义词典
+└── 自更新/             # 自我进化机制
+```
+
+## 技术架构
+
+```
+┌──────────────────┐     ┌──────────────────┐
+│   火山引擎 ASR   │────▶│  字级别时间戳    │
+│  （云端转录）    │     │  subtitles.json  │
+└──────────────────┘     └────────┬─────────┘
+                                  │
+                                  ▼
+┌──────────────────┐     ┌──────────────────┐
+│   Claude Code    │────▶│   AI 审核结果    │
+│  （语义分析）    │     │  auto_selected   │
+└──────────────────┘     └────────┬─────────┘
+                                  │
+                                  ▼
+┌──────────────────┐     ┌──────────────────┐
+│   审核网页       │────▶│   最终删除列表   │
+│  （人工确认）    │     │  delete_segments │
+└──────────────────┘     └────────┬─────────┘
+                                  │
+                                  ▼
+┌──────────────────┐     ┌──────────────────┐
+│     FFmpeg       │────▶│   剪辑后视频     │
+│  filter_complex  │     │   xxx_cut.mp4    │
+└──────────────────┘     └──────────────────┘
+```
+
+## 依赖
+
+| 依赖 | 用途 | 安装方式 |
+|------|------|----------|
+| Node.js 18+ | 运行脚本 | `brew install node` |
+| FFmpeg | 音视频处理 | `brew install ffmpeg` |
+| Python 3.8+ | 模型运行 | 系统自带 |
+| 火山引擎 API | 语音转录 | [申请 Key](https://console.volcengine.com/) |
+
+## 常见问题
+
+### Q: 火山引擎转录超时？
+
+上传音频到 uguu.se（脚本默认），不要用 catbox.moe（火山引擎访问慢）。
+
+### Q: 审核网页打不开？
+
+检查端口 8899 是否被占用：`lsof -i :8899`
+
+### Q: 剪辑后音画不同步？
+
+使用 `filter_complex + trim` 而非 `concat demuxer`，脚本已处理。
+
+### Q: 如何添加自定义词典？
+
+编辑 `字幕/词典.txt`，每行一个词：
+```
+Claude Code
+MCP
+API
+```
+
+## License
+
+MIT
