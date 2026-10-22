@@ -61,6 +61,19 @@ for (let i = 0; i < 80 && !(await ev(() => S.c.yefim)); i++) {
 if (!(await ev(() => S.c.lit && S.c.yefim))) fail('fire/Yefim progression did not unlock');
 if (!(await ev(() => availableTabs().includes('trade') && availableTabs().includes('quests')))) fail('trade/quest tabs not unlocked');
 
+// Journal drip-feed: nothing until a lead, then only the current act, never later locations.
+const journalErr = await ev(() => {
+    const view = () => { tab = 'quests'; render(); return document.getElementById('view').innerText + document.getElementById('left-col').innerText; };
+    if (/Journal|Act 1|Main Story|Ghost Town|Antenna/.test(view())) return 'story shown before any lead';
+    learn('alpha'); let v = view();
+    if (!/Act 1/.test(v) || /Act 2|Ghost Town|Antenna|Reactor|sponsor/i.test(v)) return 'Act 1 journal leaks later acts: ' + v.slice(0, 300);
+    S.w.story.alpha = true; v = view();
+    if (!/Act 2/.test(v) || /Act 3|Antenna|Reactor/.test(v)) return 'Act 2 journal leaks later acts';
+    S.w.story.alpha = false; S.w.lore = {};
+    return '';
+});
+if (journalErr) fail(journalErr);
+
 // Trader + quest generation everywhere.
 await ev(() => { S.p.ru = 50000; tab = 'trade'; render(); });
 await page.click('text=Bandage — 40 Ru');

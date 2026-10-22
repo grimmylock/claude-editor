@@ -727,7 +727,7 @@ const MILESTONES = [null,
     [['Completed 3 quests', () => S.w.prog.quests >= 3], ['Killed a Tier 2 mutant or a Professional+ NPC', () => S.w.prog.mutTier >= 2 || S.w.prog.npcRank >= 2]],
     [['Reached a Tier 3 zone', () => maxTier() >= 3], ['Cleared a hidden sub-node or finished an NPC storyline arc', () => S.w.prog.subCleared || S.w.prog.arcDone]],
     [['Reached a Tier 4 zone', () => maxTier() >= 4], ['Killed a Tier 4 mutant', () => S.w.prog.mutTier >= 4], ['Finished an NPC storyline arc', () => S.w.prog.arcDone]],
-    [['Reached a Tier 5 zone', () => maxTier() >= 5], ['Main Story Act 3 done (all fragments)', () => allFrags()], ['Killed a Tier 5 mutant or a Legend NPC', () => S.w.prog.mutTier >= 5 || S.w.prog.npcRank >= 6]],
+    [['Reached a Tier 5 zone', () => maxTier() >= 5], [() => (storyStarted() ? 'Main Story Act 3 done' : 'Uncover what really happened in the Zone'), () => allFrags()], ['Killed a Tier 5 mutant or a Legend NPC', () => S.w.prog.mutTier >= 5 || S.w.prog.npcRank >= 6]],
     [['Main Story finale done', () => S.w.story.done]],
 ];
 
@@ -758,7 +758,7 @@ function freshState() {
             goals: { Obelisk: 0, Contractors: 0, Raiders: 0, Sentinels: 0, Liberators: 0, Garrison: 0, Ecologist: 0 }, goalDone: {},
             stock: {}, discount: {}, quests: [], done: [], arcs: {}, qn: 1, offers: {},
             story: { alpha: false, betaDrive: false, beta: false, gamma: false, sponsor: null, done: false, ending: null },
-            terms: {}, anoms: {}, objs: {}, emission: 0, crossings: 0, migration: null, caravan: false, extraRumor: 0,
+            terms: {}, anoms: {}, objs: {}, lore: {}, emission: 0, crossings: 0, migration: null, caravan: false, extraRumor: 0,
             barracks: 'Sentinels', wanderer: null, wanderRolled: {}, named: [], namedKilled: {}, bounties: [],
             prog: { quests: 0, mutTier: 0, npcRank: -1, subCleared: false, arcDone: false },
         },
@@ -913,7 +913,7 @@ function checkRank() {
     while (p.rank < 6 && MILESTONES[p.rank + 1].every(([, f]) => f())) {
         p.rank++;
         const R = RANKS[p.rank];
-        log(`PROMOTION: ${R.name}! (${MILESTONES[p.rank].map(m => m[0]).join('; ')}) — AP ${R.ap}, rank mod ${sgn(R.mod)}.`, 'gold');
+        log(`PROMOTION: ${R.name}! (${MILESTONES[p.rank].map(m => mlabel(m[0])).join('; ')}) — AP ${R.ap}, rank mod ${sgn(R.mod)}.`, 'gold');
         if (PERK_RANKS.includes(p.rank)) { p.pendingPerks++; log('A new perk is available.', 'gold'); }
     }
 }
@@ -939,7 +939,7 @@ function loadGame() {
     try {
         const data = JSON.parse(raw);
         if (data.v !== 3) throw new Error('version');
-        S = data; C = null; meet = null; toll = null; mode = 'world';
+        S = data; S.w.lore = S.w.lore || {}; C = null; meet = null; toll = null; mode = 'world';
         tab = S.w.zone === 'The Perimeter' ? 'camp' : (S.w.zone === "Scavenger's Hub" ? 'hub' : 'zone');
         log('Save loaded.');
         render(); return true;
@@ -1070,17 +1070,26 @@ function genRumors(n) {
     for (const z in ZONES) { const Z = ZONES[z]; if (Z.sub && w.visited.includes(z) && !w.found.includes(Z.sub)) pool.push(`There's a hidden way into ${Z.sub} somewhere in ${z}. Sharp eyes needed (Perception DC ${Z.subDC}).`); }
     for (const id in ARCS) if (!arcStage(id) && OUTPOSTS[id] && w.visited.includes(OUTPOSTS[id].zone)) pool.push(`${ARCS[id].npc} in ${OUTPOSTS[id].zone} is looking for someone reliable.`);
     if (w.migration && w.day <= w.migration.until) pool.push(`Mutants are migrating through ${w.migration.zone}.`);
-    if (!w.story.alpha) pool.push('An old scientist swore the first lab sits under the Industrial Basin loading dock. Its keycard should be close to the hatch.');
-    else if (!w.story.beta) pool.push(w.story.betaDrive ? 'Dr. Osei at the Dried Lake can decode almost anything. So can a sharp mind at a lab terminal.' : 'The second lab is under the Ghost Town town hall.');
-    else if (!w.story.gamma) pool.push('The third lab hides beneath a dead broadcast van on the Antenna Grid.');
-    else if (!w.story.sponsor) pool.push('Whoever walks you through the Siege Ward decides what happens at the Last Gate.');
+    if (!w.story.alpha) pool.push({ t: 'An old scientist swore there is a sealed lab under the Industrial Basin loading dock, from before the Zone.', lore: 'alpha' });
+    else if (!w.story.beta && w.story.betaDrive) pool.push({ t: 'Dr. Osei at the Dried Lake can decode almost anything. So can a sharp mind at a lab terminal.', lore: 'osei' });
+    else if (w.story.beta && !w.story.gamma) pool.push({ t: 'Obelisk dig around a dead broadcast van at the edge of the Antenna Grid.', lore: 'gamma' });
     if (!w.terms.lucifer) pool.push('Something sleeps in the sealed crypt under the Siege Ward, and something guards it.');
     if (!w.terms.oasis) pool.push('Expeditions say an artifact beats like a heart beside The Wound in the Epicenter.');
     if (w.zone !== 'The Perimeter') pool.push('Raiders who lose a fight to you remember it. So do the ones you let walk.');
     shuffle(pool);
-    return pool.slice(0, n);
+    return pool.slice(0, n).map(r => (typeof r === 'string' ? { t: r } : r));
 }
-function giveRumors(n) { genRumors(n).forEach(r => log(`Rumor: ${r}`, 'day')); }
+function tellRumor(r, prefix = 'Rumor: ') { log(prefix + r.t, 'day'); if (r.lore) learn(r.lore); }
+function giveRumors(n) { genRumors(n).forEach(r => tellRumor(r)); }
+// The journal only shows what the player has learned, A Dark Room style.
+function learn(flag) {
+    const w = S.w; if (w.lore[flag]) return;
+    const before = storyStarted();
+    w.lore[flag] = true;
+    log(before ? 'Journal updated.' : 'A new thread: something happened here before the Zone. (Journal updated.)', 'gold');
+}
+const storyStarted = () => !!(S.w.lore.alpha || S.w.story.alpha || S.w.found.includes('Secret Lab Alpha') || count('Alpha Access Keycard'));
+const mlabel = t => (typeof t === 'function' ? t() : t);
 function addNamed(name, where, attitude, status = 'alive') {
     const w = S.w, ex = w.named.find(x => x.name === name);
     if (ex) Object.assign(ex, { where, attitude, status });
@@ -1101,6 +1110,7 @@ function travel(dest, paidToll) {
     S.w.zone = dest; S.w.wanderer = null; meet = null;
     if (!S.w.visited.includes(dest)) S.w.visited.push(dest);
     log(`Traveled to ${dest}. ${DZ.desc}`);
+    if (dest === 'Dried Lake Sub-Station' && S.w.story.betaDrive && !S.w.story.beta) learn('osei');
     S.w.quests.forEach(q => q.objs.forEach(o => { if (o.t === 'deliver' && o.zone === dest && !o.done && take(o.item)) { o.done = true; log(`Objective: ${o.text} — done.`, 'gold'); } }));
     checkRank();
     S.w.crossings++;
@@ -1148,6 +1158,7 @@ function searchHidden() {
 }
 function foundSub(sub, how) {
     if (S.w.found.includes(sub)) return;
+    if (sub === 'Secret Lab Alpha' && !storyStarted()) learn('alpha');
     S.w.found.push(sub);
     log(`${how}: you find the hidden way into ${sub}!`, 'gold');
     if (sub === 'Secret Lab Alpha' && !S.w.story.alpha) { addItem('Alpha Access Keycard'); log('A maintenance locker by the hatch holds an ALPHA ACCESS KEYCARD. (Improvised detail.)', 'gold'); }
@@ -1561,6 +1572,7 @@ function turnIn(q, how) {
         log(`CONTRACT COMPLETE: ${q.title}. +${ru} Ru${q.giver ? `, ${q.giver} +1 (${w.rep[q.giver]})` : ''}.`, 'gold');
         if (q.nonRu === 'discount') { w.discount[q.board] = Math.min(.3, (w.discount[q.board] || 0) + .1); log(`${boardName(q.board)} gives you a permanent 10% discount.`, 'gold'); }
         if (q.nonRu === 'rumor') giveRumors(1);
+        if (q.arc === 'yefim' && q.stage === 0) { log('Yefim pokes the fire. "Before the wire, I hauled crates for a lab under the Industrial Basin loading dock. Nobody ever came back for them."', 'day'); learn('alpha'); }
         if (q.nonRu === 'upgrade') { S.p.freeUpgrades++; log('Reward: a free technician upgrade (Repair Yard, Scavenger\'s Hub).', 'gold'); }
     }
     // item reward: a filler quest rolls on the zone table; major quests get hand-picked crates
@@ -2099,7 +2111,7 @@ function terminal() {
         if (st.alpha) return log('The Sample Storage terminal is wiped clean.');
         if (!count('Alpha Access Keycard')) return log("The Sample Storage terminal is sealed. It needs the Alpha Access Keycard.", 'warn');
         take('Alpha Access Keycard'); st.alpha = true; S.w.prog.subCleared = true;
-        log('STORY: FRAGMENT ALPHA — the Origin Log. Project Hearth existed before the accident. The accident was an experiment.', 'gold');
+        log('STORY: FRAGMENT ALPHA — the Origin Log. Project Hearth existed before the accident. The accident was an experiment. The log mentions a second site, under the Ghost Town town hall.', 'gold');
         for (let i = d(3); i > 0; i--) C.loot.push(...rollLoot(3, 'container'));
     } else if (g === 'labbeta') {
         if (st.betaDrive) return log('The archive terminal has nothing more to give.');
@@ -2574,7 +2586,7 @@ function prisoner(u, act) {
         const r = d(20), m = Math.max(statMod(S.p.stats.I), statMod(S.p.stats.S)), tot = r + m;
         if (tot < 12) return log(`Interrogation (${r}${sgn(m)} = ${tot} vs DC 12): they won't talk.`);
         if (d(2) === 1) { const extra = rollLoot(zoneTier(C.zone), 'container'); C.loot.push(...extra); log(`Interrogation (${tot} vs DC 12): they point you to a nearby stash.`, 'good'); }
-        else log(`Interrogation (${tot} vs DC 12): ${genRumors(1)[0] || 'they swear they know nothing.'}`, 'good');
+        else { const r = genRumors(1)[0]; if (r) tellRumor(r, `Interrogation (${tot} vs DC 12): `); else log('They swear they know nothing.'); }
         return;
     }
     u.resolved = true;
@@ -2610,6 +2622,30 @@ function resolveEnding() {
     C = null; mode = 'world'; tab = 'zone';
     saveGame(true);
 }
+function journal() {
+    const st = S.w.story, L = S.w.lore, found = z => S.w.found.includes(z);
+    const acts = [
+        ['Origin', st.alpha, () => found('Secret Lab Alpha')
+            ? 'Secret Lab Alpha lies under the Industrial Basin loading dock.' + (count('Alpha Access Keycard') ? ' Its Sample Storage terminal is sealed; your Alpha Access Keycard should open it.' : ' Its terminal is sealed. You need a way in.')
+            : 'There is talk of a sealed lab under the Industrial Basin loading dock, from before the Zone. Search the area.'],
+        ['Guardians', st.beta, () => st.betaDrive
+            ? 'The research drive is encrypted.' + (L.osei ? ' Dr. Osei at the Dried Lake could decode it, or a sharp mind at a lab terminal (Intelligence DC 18).' : ' Someone will have to crack it. A lab terminal might do (Intelligence DC 18).')
+            : found('Secret Lab Beta') ? 'Secret Lab Beta lies beneath the Ghost Town town hall. Search its archive.' : 'The Origin Log points to a second site under the Ghost Town town hall.'],
+        ['The Signal', st.gamma, () => found('Secret Lab Gamma') ? 'Secret Lab Gamma is open to you. Get into its Sealed Vault.'
+            : 'The decoded drive names the Antenna Grid as the relay. Something is buried beneath it.' + (L.gamma ? ' Obelisk keep digging around a dead broadcast van at its edge.' : '')],
+        ['Allegiance', !!st.sponsor, () => 'Fragment Gamma points to the Reactor Core, past the Siege Ward. Whoever walks you through the Siege Ward decides what happens at the end. Choose a sponsor in Abandoned City or the Siege Ward, or go alone.'],
+        ['The Last Gate', st.done, () => `Fight through the Containment Hall of the Reactor Core and open the Last Gate${st.sponsor ? ` (sponsor: ${st.sponsor})` : ''}.`],
+    ];
+    let h = '';
+    for (let i = 0; i < acts.length; i++) {
+        const [title, done, text] = acts[i];
+        if (done) { h += `<span class="good">[✓] Act ${i + 1} — ${title}</span><br>`; continue; }
+        h += `<b>Act ${i + 1} — ${title}</b><br><span>${text()}</span>`;
+        break;
+    }
+    if (st.done) h += `<span class="gold">The Source: ${ENDINGS[st.ending].title}.</span>`;
+    return h;
+}
 function actLabel() {
     const s = S.w.story;
     if (s.done) return `Resolved: ${ENDINGS[s.ending].title}`;
@@ -2641,7 +2677,7 @@ function availableTabs() {
 }
 function tabLabel(t) {
     if (t === 'trade') { const s = shopsHere(); return s.length === 1 ? OUTPOSTS[s[0]].npc : 'Traders'; }
-    return { camp: 'Camp', zone: 'Zone', hub: "Scavenger's Hub", quests: 'Quests & Story', sheet: 'Character' }[t];
+    return { camp: 'Camp', zone: 'Zone', hub: "Scavenger's Hub", quests: storyStarted() ? 'Quests & Journal' : 'Quests', sheet: 'Character' }[t];
 }
 function render() {
     H = [];
@@ -2678,9 +2714,11 @@ function renderLeft() {
     h += '<h3>Attributes</h3>';
     h += `<div class="stat-bar">${['S', 'P', 'A', 'I'].map(s => `${s} ${p.stats[s]} (${sgn(statMod(p.stats[s]))})`).join(' · ')}</div>`;
     h += `<div class="stat-bar small" style="color:#dda0dd">Perks: ${p.perks.join(', ') || 'None'}</div>`;
-    h += '<h3>Main Story</h3>';
-    h += `<div class="stat-bar">${actLabel()}</div><div class="stat-bar small">`;
-    h += [['Alpha', w.story.alpha], ['Beta', w.story.beta], ['Gamma', w.story.gamma]].map(([n, v]) => `<span style="color:${v ? '#44ff44' : '#666'}">${n} [${v ? '✓' : ' '}]</span>`).join(' · ') + '</div>';
+    if (storyStarted()) {
+        h += `<h3>Main Story</h3><div class="stat-bar">${actLabel()}</div>`;
+        const frags = [['Alpha', w.story.alpha], ['Beta', w.story.beta], ['Gamma', w.story.gamma]].filter(f => f[1]).map(f => f[0]);
+        if (frags.length) h += `<div class="stat-bar small good">Fragments: ${frags.join(' · ')}</div>`;
+    }
     h += '<h3>Inventory</h3>';
     const items = Object.keys(p.inv).sort();
     if (!items.length) h += '<div class="muted small">Empty.</div>';
@@ -2881,15 +2919,9 @@ function viewHub() {
 }
 function viewQuests() {
     const w = S.w, st = w.story;
-    let h = '<h2>Main Story — The Heart of the Zone</h2><div class="panel">';
-    const line = (ok, t) => `<span class="${ok ? 'good' : ''}">[${ok ? '✓' : ' '}] ${t}</span><br>`;
-    h += line(st.alpha, 'Act 1 — Origin: find Secret Lab Alpha (Industrial Basin, Perception DC 15), open the Sample Storage terminal with the Alpha Access Keycard');
-    h += line(st.betaDrive, 'Act 2 — Guardians: recover the research drive from Secret Lab Beta (Ghost Town, DC 17)');
-    h += line(st.beta, '…have it decoded: Dr. Osei (Dried Lake) or Intelligence DC 18 at any lab terminal');
-    h += line(st.gamma, 'Act 3 — The Signal: find Secret Lab Gamma (Antenna Grid, DC 18), open the Sealed Vault');
-    h += line(!!st.sponsor, `Act 4 — Allegiance: choose a sponsor in Abandoned City or the Siege Ward${st.sponsor ? ` (${st.sponsor})` : ''}`);
-    h += line(st.done, 'Act 5 — The Last Gate: fight through the Containment Hall (Reactor Core), open the Gate with all three Fragments');
-    h += '</div><h2>Contracts</h2><h3>Active</h3>';
+    let h = '';
+    if (storyStarted()) h += '<h2>Journal</h2><div class="panel">' + journal() + '</div>';
+    h += '<h2>Contracts</h2><h3>Active</h3>';
     if (!w.quests.length) h += '<p class="muted">No active contracts.</p>';
     w.quests.forEach(q => {
         const done = q.objs.every(objDone);
@@ -2931,7 +2963,7 @@ function viewSheet() {
         + `Carry ${weight()}/${d0.carry}kg · Detector: ${p.detector || 'none'} · Pack: ${p.backpack || 'none'}${p.freeUpgrades ? ` · Free upgrades: ${p.freeUpgrades}` : ''}</div>`;
     if (p.rank < 6) {
         h += `<h3>Next rank: ${RANKS[p.rank + 1].name}${PERK_RANKS.includes(p.rank + 1) ? ' (+perk)' : ''}</h3>`;
-        MILESTONES[p.rank + 1].forEach(([t, f]) => { h += `<div class="row ${f() ? 'good' : 'muted'}">[${f() ? '✓' : ' '}] ${t}</div>`; });
+        MILESTONES[p.rank + 1].forEach(([t, f]) => { h += `<div class="row ${f() ? 'good' : 'muted'}">[${f() ? '✓' : ' '}] ${mlabel(t)}</div>`; });
     }
     h += '<h3>Weapons</h3>';
     p.weapons.forEach(x => {
