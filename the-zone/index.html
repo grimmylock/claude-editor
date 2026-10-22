@@ -105,8 +105,7 @@
 
 <script>
 'use strict';
-// Rules source: docs/00-04 and 06-10. File 05 (perks, consumables, baseline shop) was not provided,
-// so perks, consumable effects and the Layer 1 baseline list are improvised.
+// Rules source: docs/00-10. Where a rule needs a detail the files leave open, the code says so.
 
 // ===================== UTIL =====================
 const $ = id => document.getElementById(id);
@@ -290,34 +289,61 @@ const DETECTORS = {
     'Svarog Detector': { bonus: 4, range: 6, reveal: true },
 };
 
-// ===================== DATA: ITEMS (file 05 missing — improvised effects) =====================
+// ===================== DATA: ITEMS & CONSUMABLES (file 05) =====================
 const ITEMS = {
     'Wood': { w: 0.5, sell: 3 }, 'Scrap Metal': { w: 1.0, sell: 20 },
-    'MRE': { w: 0.5, price: 60 }, 'Bandage': { w: 0.2, price: 40, med: true },
-    'Basic Medkit': { w: 0.5, price: 120, heal: 30, med: true }, 'Military Medkit': { w: 0.8, heal: 50, med: true },
-    'Scientific Medkit': { w: 1.0, heal: 70, cureRad: true, med: true },
-    'Basic Stimpak': { w: 0.3, price: 150, temp: 20, med: true }, 'Military Stimpak': { w: 0.3, temp: 35, med: true },
-    'Scientific Stimpak': { w: 0.3, temp: 50, med: true },
-    'Antirad Pill': { w: 0.1, price: 80, med: true }, 'Field Repair Kit': { w: 1.0, price: 300 },
+    'MRE': { w: 0.5, price: 50, heal: 10, food: true }, 'Bandage': { w: 0.2, price: 40, med: true },
+    'Basic Medkit': { w: 1.0, price: 100, heal: 20, med: true }, 'Military Medkit': { w: 1.0, heal: 40, med: true },
+    'Scientific Medkit': { w: 1.0, heal: 60, med: true },
+    'Basic Stimpak': { w: 0.5, price: 120, temp: 15, med: true }, 'Military Stimpak': { w: 0.5, temp: 25, med: true },
+    'Scientific Stimpak': { w: 0.5, temp: 40, med: true }, 'Energy Drink': { w: 0.3, price: 40, temp: 10 },
+    'Antirad Pill': { w: 0.2, price: 60, med: true }, 'Field Repair Kit': { w: 1.0, price: 300 },
     'Frag Grenade': { w: 0.5, price: 250 }, 'Smoke Grenade': { w: 0.5, price: 150 }, 'Flashbang': { w: 0.5, price: 200 },
     'Anomaly Map': { w: 0.1, price: 500 },
 };
 const PART_BAND = [null, [75, 150], [200, 350], [400, 600], [800, 1200], [1200, 1700]];
 for (let t = 1; t <= 5; t++) ITEMS[`Mutant Part (T${t})`] = { w: 2.0, part: t };
 const itemDef = n => ITEMS[n] || (MODS[n] ? { w: 0.5, mod: true } : { w: 1.0, quest: true });
-const BASELINE = ['MRE', 'Bandage', 'Basic Medkit', 'Basic Stimpak', 'Antirad Pill', 'Frag Grenade', 'Smoke Grenade', 'Flashbang', 'Field Repair Kit'];
+const BASELINE = ['Basic Medkit', 'Basic Stimpak', 'Bandage', 'Antirad Pill', 'MRE', 'Energy Drink', 'Frag Grenade', 'Smoke Grenade', 'Flashbang', 'Field Repair Kit'];
 
-const PERKS = {
-    'Recoil Control': 'No burst penalty with assault rifles.',
-    'Breacher': '+4 damage on shotgun hits within 4 tiles.',
-    'Pack Mule': 'Base carry capacity 50kg.',
-    'Quick Hands': 'Reloading costs 0 AP.',
-    'Gunsmith': 'Clearing a jam costs 0 AP.',
-    'Controlled Taps': 'A kept d20 of 15+ refunds 1 AP, once per turn.',
-    'Artifact Handler': 'Artifact Anom-DR penalties are halved.',
-    'Combat Medic': '+10 HP from all healing items.',
-    'Sprinter': '+1 MP.',
+const PERKS = { // name: [category, effect]
+    "Marksman's Focus": ['Sniper Rifles', '+2 to attack rolls with a Sniper Rifle.'],
+    'High-Velocity Impact': ['Sniper Rifles', 'Sniper Rifle at 12+ tiles: ignore an extra 20% of Phys-DR (stacks with the weapon\'s own).'],
+    'Overwatch': ['Sniper Rifles', 'Reaction: hold 2 AP; when an enemy enters your sight before your next turn, take one Sniper Rifle shot.'],
+    'Recoil Control': ['Assault Rifles', 'No burst penalty with assault rifles.'],
+    'Controlled Taps': ['Assault Rifles', 'Regain 1 AP the first time each turn your kept d20 is 15+.'],
+    'Suppressive Fire': ['Assault Rifles', '3 AP: every enemy within 4 tiles of a point is Suppressed, and must pass Agility DC 13 or lose 2 AP.'],
+    'Bullet Hose': ['SMG', 'SMG bursts have no penalty against targets within 4 tiles.'],
+    'Run and Gun': ['SMG', 'Once per turn, 1 AP: +2 MP to move and shoot.'],
+    'Hit and Run': ['SMG', 'After an SMG attack, gain 2 free MP this turn.'],
+    'Entrenched': ['Heavy Weapons', '+20% Phys-DR against incoming attacks if you used 0 MP this turn.'],
+    'Shredder': ['Heavy Weapons', 'Heavy-weapon bursts roll with advantage but use double ammo.'],
+    'Walking Tank': ['Heavy Weapons', 'Ignore the "MP capped at 2" heavy-weapon restriction.'],
+    'Breacher': ['Shotguns', '+4 raw shotgun damage within 4 tiles.'],
+    'Buckshot Spread': ['Shotguns', 'A shotgun roll can also hit one enemy adjacent to the target.'],
+    'Staggering Blast': ['Shotguns', 'A shotgun hit within 4 tiles drains 2 MP from the target next turn.'],
+    'Gunslinger': ['Sidearms', 'Two sidearms: one attack fires both (2 AP, −1 each). Reload both for normal reload AP +1.'],
+    'Double Tap': ['Sidearms', 'Fire a sidearm twice in one action for 3 AP. Not with a Gunslinger dual-shot.'],
+    'Point-Blank Execution': ['Sidearms', 'Sidearm attacks ignore cover AC.'],
+    'Blade Dancer': ['Melee', 'First melee attack each turn costs 2 AP, the next two 1 AP each (max 3).'],
+    'Desperate Parry': ['Melee', 'Reaction: hold 1 AP; when a melee attack would hit you, Agility DC 14 negates it.'],
+    'Combat Medic': ['Action, Economy & Survival', '+10 HP from medkits, stimpaks and other healing consumables.'],
+    'Quick Hands': ['Action, Economy & Survival', 'All reloads cost 0 AP.'],
+    'Gunsmith': ['Action, Economy & Survival', 'Clearing a jam costs 0 AP.'],
+    'Sprinter': ['Action, Economy & Survival', '+2 MP per turn.'],
+    'Tactical Reposition': ['Action, Economy & Survival', '+1 MP each turn only for reaching cover; ending your turn in cover gives +1 AC.'],
+    'Adrenaline Surge': ['Action, Economy & Survival', 'Reaction: the first time you drop below 30 HP in a fight, gain 2 AP and 20 temporary HP.'],
+    'Vault': ['Action, Economy & Survival', 'Moving across cover tiles costs 0 MP.'],
+    'Pack Mule': ['Action, Economy & Survival', 'Base carry capacity 50kg.'],
+    'Iron Stomach': ['Action, Economy & Survival', 'Food restores double Hunger/Thirst (MRE +4/+4).'],
+    'Anomaly Whisperer': ['Action, Economy & Survival', '+2 to anomaly avoidance checks.'],
+    'Scavenger': ['Action, Economy & Survival', 'Roll item counts for crates and NPC extra loot twice, keep the higher.'],
+    'Iron Will': ['Action, Economy & Survival', 'Temporary HP lasts 8 turns instead of 4.'],
+    'Artifact Handler': ['Action, Economy & Survival', 'Artifact Anom-DR penalties are halved.'],
+    'Haggler': ['Action, Economy & Survival', 'Pay 15% less when buying, get 15% more when selling.'],
 };
+// Interactive objects (file 05). P and L are placed on first visit to a grid; R tiles are part of a grid.
+const OBJ = { P: ['Encrypted PDA', ['I'], 14], L: ['Electronic Lock', ['A', 'I'], 15], R: ['Rusted Blast Door', ['S'], 16] };
 const LOADOUTS = {
     'Scavenger': { desc: 'Hunting Knife, PMm + 30 rds 9x18mm, Leather Jacket, 2 Basic Medkit, 1 Bandage, 200 Ru.', weapons: [['Hunting Knife'], ['PMm', 30]], armor: 'Leather Jacket', items: { 'Basic Medkit': 2, 'Bandage': 1 }, ru: 200 },
     'Ex-Military': { desc: 'AKS-74U + 60 rds 5.45x39mm, Spetsnaz Switchblade, Raider Jacket, 1 Basic Medkit, 1 Basic Stimpak, 100 Ru.', weapons: [['AKS-74U', 60], ['Spetsnaz Switchblade']], armor: 'Raider Jacket', items: { 'Basic Medkit': 1, 'Basic Stimpak': 1 }, ru: 100 },
@@ -363,7 +389,7 @@ function bandOf(kind, name) {
     if (kind === 'art') return ARTS[name].legend ? [0, 0] : CAT_BAND[ARTS[name].tier].art;
     if (kind === 'mod' || MODS[name]) return CAT_BAND[poolTier('mod', name)].mod;
     if (kind === 'detector') return CAT_BAND[poolTier('det', name)].det;
-    if (kind === 'backpack') return name === 'Tourist Frame' ? CAT_BAND[2].pack : [300, 300];
+    if (kind === 'backpack') return name === 'Tourist Frame' ? CAT_BAND[2].pack : [80, 80];
     const it = ITEMS[name];
     if (it && it.price) return [it.price, it.price];
     if (it && it.part) return PART_BAND[it.part];
@@ -509,11 +535,11 @@ const GRIDS = {
     shipfield: { rows: ['^#^#.....^#^#....x', '^#^#.....^#^#.....', '..................', '..................', '..................', '..#.#.#.....#.#.#.', '..#.#.#.....#.#.#.', 'e.................'] },
     antfield: { rows: ['^...^...^...^...^x', '..................', '..C.....C.....C...', '........!.........', '..C.....C.....C...', '..................', '^...^...^...^...^.', 'e~~...............'] },
     relay: { rows: ['e....', '#DCD#', '..^..', '##D##', '....x'] },
-    cityfield: { rows: ['####.####.####...x', '#..#.#..#.#..#....', '..................', '..................', '........##........', '..................', '~~................', 'e~................'] },
+    cityfield: { rows: ['####R####.####...x', '#..#.#..#.#..#....', '..................', '..................', '........##........', '..................', '~~................', 'e~................'] },
     highrise: { rows: ['e..........', '#D#C.C.C#D#', '..^.....^..', '##D.C.C.D##', '..........x'] },
     barricade: { rows: ['##D###D##', 'C.x.C...C', '.........', 'C.D~~~D.C', '###.e.###'] },
     epicenter: { extra: 10, rows: ['e.#~#.#~#.......', '................', '~~~~~~~~~~~~~~~~', '~~~~~~!!!!~~~~~~', '~~~~~!!H!!~~~~~~', '~~~~~~!!!!~~~~~~', '~~~~~~~~~~~~~~~~', '...............x'] },
-    siegefield: { rows: ['......^^.......x', '......^^........', '....tttttttt....', '................', '..#~#....#~#....', '................', '~~..............', 'e~..............'] },
+    siegefield: { rows: ['......^^.......x', '......^^........', '....tttttttt....', '................', '..#R#....#~#....', '................', '~~..............', 'e~..............'] },
     trenches: { rows: ['......C...x..C.......', 'tttDtttttDtttttDttttt', '###t#####t#####t#####', '###t#####t#####t#####', 'tttDtttttDtttttDttttt', '......C......C.......', '..........e..........'] },
     hall: { anom: 'Radiation Pocket', rows: ['...........x...........', '^^^^^^^^^^^^^^^^^^^^^^^', '....#.............#....', '...C....C.....C....C...', '........###D###........', '........#!!!!!#........', '........###D###........', '...C....C.....C....C...', '....#.............#....', '.e.....................'] },
     tunnels: { rows: ['e.#.#...', '#.#.#.#.', '......#.', '.##.##.x', '..#...#.'] },
@@ -528,7 +554,7 @@ const GRIDS = {
     bunker: { rows: ['eD.....', '##D####', 'S...CCC'] },
     catacombs: { rows: ['e......', '#D#.#D#', '......H'] },
 };
-const TILE_CLS = { '#': 'c-wall', 'C': 'c-cover', '=': 'c-hard', '^': 'c-high', '~': 'c-rubble', 't': 'c-trench', 'D': 'c-door', 'T': 'c-term', 'S': 'c-term', 'H': 'c-door' };
+const TILE_CLS = { 'R': 'c-door', '#': 'c-wall', 'C': 'c-cover', '=': 'c-hard', '^': 'c-high', '~': 'c-rubble', 't': 'c-trench', 'D': 'c-door', 'T': 'c-term', 'S': 'c-term', 'H': 'c-door' };
 
 // Faction outposts (file 06, "Trading outside the Hub")
 const OUTPOSTS = {
@@ -732,7 +758,7 @@ function freshState() {
             goals: { Obelisk: 0, Contractors: 0, Raiders: 0, Sentinels: 0, Liberators: 0, Garrison: 0, Ecologist: 0 }, goalDone: {},
             stock: {}, discount: {}, quests: [], done: [], arcs: {}, qn: 1, offers: {},
             story: { alpha: false, betaDrive: false, beta: false, gamma: false, sponsor: null, done: false, ending: null },
-            terms: {}, anoms: {}, emission: 0, crossings: 0, migration: null, caravan: false, extraRumor: 0,
+            terms: {}, anoms: {}, objs: {}, emission: 0, crossings: 0, migration: null, caravan: false, extraRumor: 0,
             barracks: 'Sentinels', wanderer: null, wanderRolled: {}, named: [], namedKilled: {}, bounties: [],
             prog: { quests: 0, mutTier: 0, npcRank: -1, subCleared: false, arcDone: false },
         },
@@ -770,7 +796,7 @@ function D() {
     const physRaw = (arm ? arm.phys : 0) + mSum('phys') + aSum('phys') + (upg.includes('Plating') ? .05 : 0) - condPen;
     const anomRaw = (arm ? arm.anom : 0) + mSum('anom') + aSum('anomB') + (upg.includes('Lining') ? .10 : 0) - condPen - pen;
     let bleedDmg = 5; act.forEach(a => { if (a.bleed !== undefined) bleedDmg = Math.min(bleedDmg, a.bleed); });
-    const mp = (arm ? arm.mp : 4) + (p.rank >= 4 ? 1 : 0) + aSum('mp') + mSum('mp') + (has('Sprinter') ? 1 : 0);
+    const mp = (arm ? arm.mp : 4) + (p.rank >= 4 ? 1 : 0) + aSum('mp') + mSum('mp') + (has('Sprinter') ? 2 : 0);
     const carry = (has('Pack Mule') ? 50 : 25) + (p.backpack ? BACKPACKS[p.backpack].carry : 0) + mSum('carry') + aSum('carry');
     return {
         arm, mods, beltSlots, worn, pen, physRaw, anomRaw, phys: clamp(physRaw, 0, .75), anom: clamp(anomRaw, 0, .75), bleedDmg,
@@ -789,6 +815,7 @@ function playerDR(kind, sub) {
         if (sub === 'Electro' && d0.mods.includes('Faraday Mesh')) v += .30;
         if (sub === 'psi' && d0.mods.includes('Psi-Stimulator Earpiece')) v += .20;
     }
+    if (kind === 'phys' && mode === 'combat' && C && C.entrenched) v += .20;
     return clamp(v, 0, .75);
 }
 const playerBaseAC = () => Math.max(10, 10 + RANKS[S.p.rank].mod);
@@ -796,7 +823,8 @@ const armorWeight = a => Math.max(1, ARMOR[a.name].weight - (a.upg.includes('Lig
 function weight() {
     const p = S.p; let w = 0;
     for (const i in p.inv) w += itemDef(i).w * p.inv[i];
-    for (const cal in p.ammo) for (const t in p.ammo[cal]) w += p.ammo[cal][t] * 0.02;
+    for (const cal in p.ammo) for (const t in p.ammo[cal]) w += p.ammo[cal][t] / ammoBox(cal); // 1kg per box
+    if (p.backpack) w += p.backpack === 'Tourist Frame' ? 1.5 : 0.5;
     p.weapons.forEach(x => { w += WEAPONS[x.name].weight; });
     if (p.armor) w += armorWeight(p.armor);
     p.spareArmor.forEach(a => { w += armorWeight(a); });
@@ -806,7 +834,7 @@ function weight() {
 function drainSurvival(h, t, r) { const p = S.p; p.hunger = Math.max(0, p.hunger - h); p.thirst = Math.max(0, p.thirst - t); p.tired = Math.max(0, p.tired - r); }
 function autoEat() {
     const p = S.p;
-    if (count('MRE') > 0 && (p.hunger <= 6 || p.thirst <= 6)) { take('MRE'); p.hunger = Math.min(10, p.hunger + 2); p.thirst = Math.min(10, p.thirst + 2); log('You eat an MRE on the march (+2 Hunger, +2 Thirst).'); }
+    if (count('MRE') > 0 && (p.hunger <= 6 || p.thirst <= 6)) { take('MRE'); log('You eat an MRE on the march.'); applyItem('MRE'); }
 }
 function clampHp() { S.p.hp = Math.min(S.p.hp, D().maxHp); }
 function topOffAll() {
@@ -1344,7 +1372,7 @@ function equipWeapon(id) {
         if (!actOK(cost)) return;
         C.ap -= cost;
     }
-    S.p.eq = id; log(`Equipped ${eqW().name}.`);
+    S.p.eq = id; if (S.p.off === id) S.p.off = null; log(`Equipped ${eqW().name}.`);
 }
 function cycleAmmo(w) {
     const wd = WEAPONS[w.name]; if (!wd.cal) return;
@@ -1384,17 +1412,16 @@ function useRepairKit(obj) {
 function equipDetector(name) { if (!take(name)) return; if (S.p.detector) addItem(S.p.detector); S.p.detector = name; log(`Switched to the ${name}.`); }
 function applyItem(name) {
     const p = S.p, it = ITEMS[name], medic = has('Combat Medic') ? 10 : 0;
-    if (it.heal) { p.hp = Math.min(D().maxHp, p.hp + it.heal + medic); if (it.cureRad) p.st.rad = false; log(`${name}: +${it.heal + medic} HP.`, 'good'); }
-    else if (it.temp) { p.temp = it.temp + medic; p.tempTurns = 4; log(`${name}: +${p.temp} temporary HP for 4 turns.`, 'good'); }
-    else if (name === 'Bandage') {
-        p.st.bleed = false; p.st.toxic = false;
-        const w = p.st.arm ? 'arm' : p.st.leg ? 'leg' : null; if (w) p.st[w] = false;
-        p.hp = Math.min(D().maxHp, p.hp + 5 + medic);
-        log(`Bandage applied: bleeding stopped${w ? `, ${w} wound dressed` : ''}.`, 'good');
+    if (it.heal) { p.hp = Math.min(D().maxHp, p.hp + it.heal + medic); log(`${name}: +${it.heal + medic} HP.`, 'good'); }
+    if (it.temp) { p.temp = Math.max(p.temp, it.temp + medic); p.tempTurns = has('Iron Will') ? 8 : 4; log(`${name}: ${p.temp} temporary HP for ${p.tempTurns} turns.`, 'good'); }
+    if (it.food) { const f = has('Iron Stomach') ? 4 : 2; p.hunger = Math.min(10, p.hunger + f); p.thirst = Math.min(10, p.thirst + f); log(`+${f} Hunger, +${f} Thirst.`); }
+    if (name === 'Energy Drink' && mode === 'combat' && C) { C.mp += 1; log('Energy Drink: +1 MP.', 'good'); }
+    if (name === 'Bandage') {
+        if (p.st.bleed || p.st.toxic) { p.st.bleed = false; p.st.toxic = false; log('Bandage: bleeding stopped.', 'good'); }
+        else { const w = p.st.arm ? 'arm' : p.st.leg ? 'leg' : null; if (w) { p.st[w] = false; log(`Bandage: ${w} wound treated.`, 'good'); } else log('Bandage: nothing to treat.'); }
     }
-    else if (name === 'MRE') { p.hunger = Math.min(10, p.hunger + 2); p.thirst = Math.min(10, p.thirst + 2); log('MRE: +2 Hunger, +2 Thirst.'); }
-    else if (name === 'Antirad Pill') { p.st.rad = false; log('Antirad: radiation purged.', 'good'); }
-    else if (name === 'Anomaly Map') {
+    if (name === 'Antirad Pill') { p.st.rad = false; log('Antirad: radiation purged.', 'good'); }
+    if (name === 'Anomaly Map') {
         ZONES[S.w.zone].lms.forEach(([, g]) => { const A = ensureAnoms(g, S.w.zone); for (const key in A) A[key].revealed = true; });
         log(`Anomaly Map: every anomaly in ${S.w.zone} is now marked.`, 'good');
     }
@@ -1402,7 +1429,7 @@ function applyItem(name) {
 const USABLE = n => { const it = ITEMS[n]; return it && (it.heal || it.temp || ['Bandage', 'Antirad Pill', 'MRE', 'Anomaly Map'].includes(n)); };
 function useItem(name) {
     if (mode === 'combat') { if (name === 'Anomaly Map') return; if (!actOK(2)) return; if (!take(name)) return; C.ap -= 2; applyItem(name); return; }
-    if (ITEMS[name].temp) return log('Stimpaks only matter in a fight.', 'warn');
+    if (ITEMS[name].temp) return log(`${name} only matters in a fight.`, 'warn');
     if (take(name)) applyItem(name);
 }
 
@@ -1569,7 +1596,7 @@ const smokeAt = (x, y) => C.smoke.some(s => Math.abs(s.x - x) <= 1 && Math.abs(s
 const visible = u => !u.cloaked || man(u.x, u.y, C.px, C.py) <= 3;
 const myTurn = () => mode === 'combat' && C && !C.enemyPhase;
 const pDist = u => man(u.x, u.y, C.px, C.py);
-const blocksLoS = (x, y) => { const t = tileAt(x, y); return t === '#' || t === 'D' || t === 'H'; };
+const blocksLoS = (x, y) => { const t = tileAt(x, y); return t === '#' || t === 'D' || t === 'H' || t === 'R'; };
 
 function lineTiles(x0, y0, x1, y1) {
     const out = []; const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
@@ -1609,7 +1636,7 @@ function damageCover(key, n) {
 }
 function highGroundAdv(ax, ay, tx, ty, cov) { return tileAt(ax, ay) === '^' && tileAt(tx, ty) !== '^' && !cov.bonus; }
 
-function dijkstra(sx, sy, passFn) {
+function dijkstra(sx, sy, passFn, costFn = tileCost) {
     const W = C.W, N = W * C.H, dist = new Array(N).fill(Infinity), prev = new Array(N).fill(-1), done = new Array(N).fill(false);
     dist[sy * W + sx] = 0;
     for (;;) {
@@ -1621,7 +1648,7 @@ function dijkstra(sx, sy, passFn) {
         for (const [dx, dy] of DIR4) {
             const nx = bx + dx, ny = by + dy;
             if (!inB(nx, ny) || !passFn(nx, ny)) continue;
-            const ni = ny * W + nx, nd = bd + tileCost(nx, ny);
+            const ni = ny * W + nx, nd = bd + costFn(nx, ny);
             if (nd < dist[ni]) { dist[ni] = nd; prev[ni] = best; }
         }
     }
@@ -1632,6 +1659,8 @@ function pathTo(res, x, y) {
     while (res.prev[i] !== -1) { out.unshift([i % W, (i / W) | 0]); i = res.prev[i]; }
     return out;
 }
+const playerCost = (x, y) => (has('Vault') && isCoverT(tileAt(x, y)) ? 0 : tileCost(x, y));
+const coverMpFor = (x, y) => (C.coverMp && nearCover(x, y) ? C.coverMp : 0);
 const playerPass = (x, y) => passable(x, y) && !unitAt(x, y) && !(C.anoms[k(x, y)] && C.anoms[k(x, y)].revealed);
 const npcPass = u => (x, y) => (passable(x, y) || tileAt(x, y) === 'D') && !C.anoms[k(x, y)] && !(x === C.px && y === C.py) && !C.units.some(o => o !== u && onMap(o) && o.x === x && o.y === y);
 
@@ -1648,13 +1677,45 @@ function ensureAnoms(key, zone) {
     }
     return (S.w.anoms[key] = A);
 }
+function ensureObjs(key, zone) {
+    S.w.objs = S.w.objs || {};
+    if (S.w.objs[key]) return S.w.objs[key];
+    const rows = GRIDS[key].rows, O = {}, A = S.w.anoms[key] || {};
+    rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'R') O[k(x, y)] = { type: 'R' }; }));
+    if (!ZONES[zone].safe) for (const [type, chance] of [['P', .4], ['L', .25]]) {
+        if (Math.random() >= chance) continue;
+        for (let t = 0; t < 100; t++) {
+            const y = Math.floor(Math.random() * rows.length), x = Math.floor(Math.random() * rows[0].length);
+            if (rows[y][x] === '.' && !O[k(x, y)] && !A[k(x, y)]) { O[k(x, y)] = { type }; break; }
+        }
+    }
+    return (S.w.objs[key] = O);
+}
+function objCheck(o, x, y) {
+    const [name, stats, dc] = OBJ[o.type], p = S.p;
+    const st = stats.reduce((a, b) => (statMod(p.stats[b]) > statMod(p.stats[a]) ? b : a)), r = d(20), m = statMod(p.stats[st]), tot = r + m;
+    if (tot < dc) return log(`${name}: ${st} ${r}${sgn(m)} = ${tot} vs DC ${dc} — no luck.`);
+    o.done = true;
+    log(`${name}: ${st} ${r}${sgn(m)} = ${tot} vs DC ${dc} — success!`, 'good');
+    if (o.type === 'P') { p.ru += 120; log('The PDA holds 120 Ru worth of intel and credits.', 'gold'); }
+    if (o.type === 'L') {
+        p.ru += 180;
+        let loot = []; for (let t = 0; t < 20 && !loot.length; t++) loot = rollLoot(Math.max(3, zoneTier(C.zone)), 'container').filter(i => i.kind !== 'ru');
+        C.loot.push(...loot); log('Behind the lock: 180 Ru and a crate.', 'gold');
+    }
+    if (o.type === 'R') { C.map[y][x] = '.'; log('The rusted blast door groans open.', 'good'); }
+}
 function enterTactical(zone, lm, units, enc = {}) {
     const L = ZONES[zone].lms.find(l => l[0] === lm) || ZONES[zone].lms[0];
-    const key = L[1], rows = GRIDS[key].rows;
+    const key = L[1], rows = GRIDS[key].rows, anoms = ensureAnoms(key, zone), objs = ensureObjs(key, zone);
     let ex = null, xx = null;
-    const map = rows.map((r, y) => r.split('').map((ch, x) => { if (ch === 'e') ex = [x, y]; if (ch === 'x') xx = [x, y]; return 'ex!'.includes(ch) ? '.' : ch; }));
+    const map = rows.map((r, y) => r.split('').map((ch, x) => {
+        if (ch === 'e') ex = [x, y]; if (ch === 'x') xx = [x, y];
+        if (ch === 'R' && objs[k(x, y)] && objs[k(x, y)].done) return '.';
+        return 'ex!'.includes(ch) ? '.' : ch;
+    }));
     C = {
-        zone, lm: L[0], grid: key, W: rows[0].length, H: rows.length, map, anoms: ensureAnoms(key, zone), integ: {}, smoke: [], units, turn: 0,
+        zone, lm: L[0], grid: key, W: rows[0].length, H: rows.length, map, anoms, objs, integ: {}, smoke: [], units, turn: 0,
         px: 0, py: 0, ap: 0, apMax: 0, mp: 0, mpMax: 0, target: null, pending: null, killed: {}, hadEnemies: units.length > 0,
         sameCover: 0, lastCover: null, suppressedNext: false, enemyPhase: false, injected: false, braced: false, cleared: false, loot: [], enc,
     };
@@ -1697,7 +1758,7 @@ function detectorPing() {
 // ===================== TACTICAL: PLAYER TURN =====================
 function combatMP() {
     const d0 = D(); let mp = d0.mpBase;
-    const wd = eqWD(); if (wd && wd.cat === 'heavy') mp = Math.min(mp, 2);
+    const wd = eqWD(); if (wd && wd.cat === 'heavy' && !has('Walking Tank')) mp = Math.min(mp, 2);
     if (S.p.st.leg) mp = Math.max(1, mp - 2);
     if (weight() > d0.carry) mp = Math.max(2, Math.floor(mp / (starving() ? 4 : 2)));
     return mp;
@@ -1709,7 +1770,9 @@ function startPlayerTurn() {
     if (p.st.drain) log(`You lose ${p.st.drain} AP this turn.`, 'warn');
     p.st.drain = 0;
     C.mpMax = combatMP(); C.mp = C.mpMax;
-    Object.assign(C, { aim: 0, tapped: false, rhino: 0, takeCover: false, evasive: false, attacked: false, startTile: k(C.px, C.py) });
+    Object.assign(C, { aim: 0, tapped: false, rhino: 0, takeCover: false, evasive: false, attacked: false, startTile: k(C.px, C.py),
+        reacted: false, held: null, coverMp: has('Tactical Reposition') ? 1 : 0, meleeCount: 0, mpSpent: 0, runGun: false, repoAC: 0, entrenched: false });
+    if (C.bonusAp) { C.ap += C.bonusAp; log(`Adrenaline: +${C.bonusAp} AP this turn.`, 'good'); C.bonusAp = 0; }
     C.suppressed = C.suppressedNext; C.suppressedNext = false;
     if (C.suppressed) log('You are SUPPRESSED: −2 to attacks this turn (move to different cover to shake it).', 'warn');
     C.units.forEach(u => { u.dmgTurn = 0; });
@@ -1730,9 +1793,18 @@ const wpnCost = base => base + (starving() ? 1 : 0);
 function attackCost(burst) {
     const wd = eqWD();
     if (burst) return wpnCost(burstOf(wd).ap);
+    if (wd.cat === 'melee') return wpnCost(has('Blade Dancer') && C.meleeCount > 0 ? 1 : 2);
+    if (dualReady()) return wpnCost(2);
     if (wd.rhino) return wpnCost(C.rhino % 3 === 0 ? 2 : 1);
     return wpnCost(2);
 }
+function offW() {
+    const p = S.p; if (!has('Gunslinger') || !p.off || p.off === p.eq) return null;
+    const w = p.weapons.find(x => x.id === p.off);
+    return w && WEAPONS[w.name].cat === 'sidearm' ? w : null;
+}
+const dualReady = () => { const wd = eqWD(); return !!(wd && wd.cat === 'sidearm' && offW()); };
+const burstRounds = (wd, b) => b.rounds * (has('Shredder') && wd.cat === 'heavy' ? 2 : 1);
 const reloadCost = () => wpnCost(has('Quick Hands') ? 0 : (eqWD().reloadAp || 1));
 const jamCost = () => wpnCost(has('Gunsmith') ? 0 : 1);
 const swapCost = to => ((eqWD() && eqWD().compact) || WEAPONS[to.name].compact ? 0 : 1);
@@ -1757,9 +1829,13 @@ const unitDR = u => (u.kind === 'mutant' ? u.m.dr : clamp(ARMOR[u.armor.name].ph
 const curTarget = () => C.units.find(u => u.id === C.target && active(u));
 
 function stepTo(nx, ny) {
-    const c = tileCost(nx, ny); if (C.mp < c) return false;
+    const c = playerCost(nx, ny);
+    if (C.mp >= c) C.mp -= c;
+    else if (C.mp + coverMpFor(nx, ny) >= c) { C.coverMp -= c - C.mp; C.mp = 0; }
+    else return false;
+    C.mpSpent += c;
     const from = [C.px, C.py];
-    C.mp -= c; C.px = nx; C.py = ny;
+    C.px = nx; C.py = ny;
     if (C.suppressed && !C.attacked && isCoverT(tileAt(nx, ny)) && k(nx, ny) !== C.startTile) { C.suppressed = false; log('You dive to fresh cover — no longer suppressed.', 'good'); }
     let ok = true;
     if (C.anoms[k(nx, ny)]) ok = enterAnomaly(nx, ny, from);
@@ -1773,18 +1849,19 @@ function stepPlayer(dx, dy) {
     const nx = C.px + dx, ny = C.py + dy;
     if (!inB(nx, ny) || !passable(nx, ny)) return log('Path obstructed.', 'warn');
     if (unitAt(nx, ny)) return log('Tile occupied.', 'warn');
-    if (C.mp < tileCost(nx, ny)) return log('Out of Movement Points.', 'warn');
+    if (C.mp + coverMpFor(nx, ny) < playerCost(nx, ny)) return log('Out of Movement Points.', 'warn');
     stepTo(nx, ny);
 }
 function moveTo(x, y) {
     if (S.p.st.prone) return log('You are prone — stand up first (1 AP).', 'warn');
-    const res = dijkstra(C.px, C.py, playerPass), dd = res.dist[y * C.W + x];
-    if (dd === Infinity || dd === 0) return;
-    if (dd > C.mp) return log(`Too far: ${dd} MP needed, ${C.mp} left.`, 'warn');
+    const res = dijkstra(C.px, C.py, playerPass, playerCost), dd = res.dist[y * C.W + x];
+    if (dd === Infinity || (x === C.px && y === C.py)) return;
+    if (dd > C.mp + coverMpFor(x, y)) return log(`Too far: ${dd} MP needed, ${C.mp} left.`, 'warn');
     for (const [nx, ny] of pathTo(res, x, y)) if (!stepTo(nx, ny)) break;
 }
 function gridClick(x, y) {
     if (!myTurn()) return;
+    if (C.pending === 'Suppressive Fire') { playerSuppress(x, y); return; }
     if (C.pending) { playerThrow(C.pending, x, y); return; }
     const u = C.units.find(v => onMap(v) && v.x === x && v.y === y && visible(v));
     if (u) { C.target = u.id; return; }
@@ -1801,7 +1878,7 @@ function enterAnomaly(x, y, from) {
         return !hurtPlayer(dmg, { msg: `RADIATION POCKET: the counter screams. −${dmg} HP, Irradiated.` });
     }
     if (d0.compass) { log(`The Compass guides you safely past the ${a.type}.`, 'gold'); return true; }
-    const r = roll(d0.anomAdv ? 1 : 0), bonus = statMod(S.p.stats.A) + (d0.det ? d0.det.bonus : 0) + d0.avoid, tot = r.die + bonus;
+    const r = roll(d0.anomAdv ? 1 : 0), bonus = statMod(S.p.stats.A) + (d0.det ? d0.det.bonus : 0) + d0.avoid + (has('Anomaly Whisperer') ? 2 : 0), tot = r.die + bonus;
     if (tot >= A.dc) { log(`${a.type}! Avoided (${r.txt}${sgn(bonus)} = ${tot} vs DC ${A.dc}).`, 'good'); return true; }
     const dmg = A.phys ? Math.max(1, Math.round(A.dmg * (1 - playerDR('phys')))) : Math.max(1, Math.ceil(A.dmg * (1 - playerDR('anom', a.type))));
     if (hurtPlayer(dmg, { msg: `${a.type.toUpperCase()}! Failed (${r.txt}${sgn(bonus)} = ${tot} vs DC ${A.dc}): −${dmg} HP.` })) return false;
@@ -1820,75 +1897,128 @@ function enterAnomaly(x, y, from) {
     return false;
 }
 
-function playerAttack(burst) {
+function playerAttack(burst, double) {
     const w = eqW(); if (!w || !myTurn()) return;
     const wd = WEAPONS[w.name], melee = wd.cat === 'melee', b = burst ? burstOf(wd) : null;
-    if (burst && !b) return;
+    if ((burst && !b) || (double && (!has('Double Tap') || wd.cat !== 'sidearm'))) return;
     if (w.cond === 'Broken') return log('Weapon is BROKEN. A technician must restore it.', 'alert');
     if (w.jammed) return log('Weapon is jammed — clear it first.', 'warn');
+    if (melee && has('Blade Dancer') && C.meleeCount >= 3) return log('Blade Dancer: at most 3 melee attacks per turn.', 'warn');
     const u = curTarget(); if (!u) return log('Select a target (click it on the grid).', 'warn');
-    const cost = attackCost(burst); if (!actOK(cost)) return;
+    const dual = !burst && !double && dualReady();
+    const cost = double ? wpnCost(3) : attackCost(burst); if (!actOK(cost)) return;
     const dist = pDist(u), range = melee ? 1 : effRange(w);
     if (dist > range) return log(`Out of range (${dist} tiles, range ${range}).`, 'warn');
     if (!hasLoS(C.px, C.py, u.x, u.y)) return log('No line of sight.', 'warn');
-    const rounds = melee ? 0 : (burst ? b.rounds : 1);
+    const rounds = melee ? 0 : burst ? burstRounds(wd, b) : double ? 2 : 1;
     if (!melee && w.mag < rounds) return log('Not enough rounds loaded — reload.', 'warn');
     C.ap -= cost; C.attacked = true;
-    if (wd.rhino && !burst) C.rhino++;
+    if (melee) C.meleeCount++;
+    if (wd.rhino && !burst && !dual) C.rhino++;
     if (u.cloaked && dist >= 4) {
         const r = d(20), m = statMod(S.p.stats.P), tot = r + m;
         if (tot < u.m.cloak) { log(`You can't pick it out of the shimmer (Perception ${r}${sgn(m)} = ${tot} vs DC ${u.m.cloak}). Attack wasted.`, 'warn'); return; }
         log(`You spot the distortion (Perception ${tot} vs DC ${u.m.cloak}).`, 'good');
     }
-    if (!melee) w.mag -= rounds;
-    let hb = statMod(S.p.stats.A) + RANKS[S.p.rank].mod + (wd.hit || 0) - (wd.recoil ? 1 : 0) + (w.upg.includes('Calibrated') ? 1 : 0);
+    if (dual) {
+        fireShot(w, u, false, -1);
+        const o = offW();
+        if (mode === 'combat' && o && active(u) && o.mag >= 1 && !o.jammed && o.cond !== 'Broken' && pDist(u) <= effRange(o)) fireShot(o, u, false, -1);
+    } else if (double) {
+        fireShot(w, u, false, 0);
+        if (mode === 'combat' && active(u) && !w.jammed) fireShot(w, u, false, 0);
+    } else fireShot(w, u, burst, 0);
+    if (mode === 'combat' && has('Hit and Run') && wd.cat === 'smg') { C.mp += 2; log('Hit and Run: +2 MP.', 'good'); }
+}
+// One attack roll with weapon w (also used by Overwatch). mod = flat to-hit modifier (Gunslinger −1).
+function fireShot(w, u, burst, mod) {
+    const wd = WEAPONS[w.name], melee = wd.cat === 'melee', b = burst ? burstOf(wd) : null, dist = pDist(u);
+    if (!melee) w.mag -= burst ? burstRounds(wd, b) : 1;
+    let hb = mod + statMod(S.p.stats.A) + RANKS[S.p.rank].mod + (wd.hit || 0) - (wd.recoil ? 1 : 0) + (w.upg.includes('Calibrated') ? 1 : 0);
     if (wd.hitSingle && !burst) hb += 1;
     if (wd.scope && dist >= 10) hb += 1;
     if (wd.cat === 'shotgun' && dist <= 4) hb += 2;
-    if (burst) hb += (wd.cat === 'assault' && has('Recoil Control')) ? 0 : b.pen;
-    hb += C.aim; C.aim = 0;
+    if (wd.cat === 'sniper' && has("Marksman's Focus")) hb += 2;
+    if (burst) hb += (wd.cat === 'assault' && has('Recoil Control')) || (wd.cat === 'smg' && dist <= 4 && has('Bullet Hose')) ? 0 : b.pen;
+    if (!C.enemyPhase) { hb += C.aim; C.aim = 0; }
     if (C.suppressed) hb -= 2;
     if (S.p.st.arm) hb -= 2;
-    const cov = coverFor(C.px, C.py, u.x, u.y, melee);
+    let cov = coverFor(C.px, C.py, u.x, u.y, melee);
+    if (wd.cat === 'sidearm' && has('Point-Blank Execution')) cov = { bonus: 0, flanked: false };
     if (cov.flanked) hb += 2;
     let adv = 0;
     if (C.advNext) { adv = 1; C.advNext = false; }
     if (highGroundAdv(C.px, C.py, u.x, u.y, cov)) adv = 1;
+    if (burst && wd.cat === 'heavy' && has('Shredder')) adv = 1;
     const r = roll(adv);
-    if (has('Controlled Taps') && r.die >= 15 && !C.tapped) { C.tapped = true; C.ap = Math.min(C.apMax, C.ap + 1); log('Controlled Taps: +1 AP.', 'good'); }
+    if (has('Controlled Taps') && r.die >= 15 && !C.tapped && !C.enemyPhase) { C.tapped = true; C.ap = Math.min(C.apMax, C.ap + 1); log('Controlled Taps: +1 AP.', 'good'); }
     if (!melee && r.die <= jamThreshold(wd, w.cond, burst)) {
         w.jammed = true;
         if (!wd.reliable && !(w.upg.includes('Hardened') && r.die !== 1)) w.cond = degrade(w.cond);
         log(`CLICK! ${w.name} JAMS (natural ${r.die}). Condition: ${w.cond}.`, 'alert');
         return;
     }
-    const ac = u.ac + cov.bonus, tot = r.die + hb;
-    const head = `${burst ? 'Burst' : melee ? 'Strike' : 'Shot'} at ${uname(u)}: ${r.txt}${sgn(hb)} = ${tot} vs AC ${ac}${cov.bonus ? ` (cover +${cov.bonus})` : cov.flanked ? ' (FLANKED +2)' : ''}.`;
+    const tot = r.die + hb;
+    resolveHit(w, u, r, tot, hb, cov, burst, b, dist);
+    if (wd.cat === 'shotgun' && has('Buckshot Spread') && mode === 'combat') {
+        const u2 = C.units.find(o => o !== u && active(o) && visible(o) && man(o.x, o.y, u.x, u.y) === 1);
+        if (u2) { log(`Buckshot spread: the same roll against ${uname(u2)}.`); resolveHit(w, u2, r, r.die + hb - (cov.flanked ? 2 : 0), hb, coverFor(C.px, C.py, u2.x, u2.y, false), burst, b, pDist(u2)); }
+    }
+}
+function resolveHit(w, u, r, tot, hb, cov, burst, b, dist) {
+    const wd = WEAPONS[w.name], melee = wd.cat === 'melee', ac = u.ac + cov.bonus;
+    const head = `${burst ? 'Burst' : melee ? 'Strike' : 'Shot'} (${w.name}) at ${uname(u)}: ${r.txt}${sgn(tot - r.die)} = ${tot} vs AC ${ac}${cov.bonus ? ` (cover +${cov.bonus})` : cov.flanked ? ' (FLANKED +2)' : ''}.`;
     if (r.die !== 20 && tot < ac) {
         const missBy = ac - tot;
         if (cov.key && missBy <= 3 && r.die !== 1) damageCover(cov.key, (burst || wd.cat === 'shotgun') ? 2 : 1);
         if (burst && missBy <= 3 && u.kind === 'human' && !u.suppressed) { u.suppressed = true; log(`${uname(u)} is SUPPRESSED.`, 'good'); }
         log(head + ' Miss.');
-        return;
+        return false;
     }
     const crit = r.die === 20;
+    let ignore = wd.ignore || 0;
+    if (wd.cat === 'sniper' && dist >= 12 && has('High-Velocity Impact')) ignore = 1 - (1 - ignore) * .8;
     const dmg = calcDamage({
         base: Math.floor((wd.dmg + (w.upg.includes('Reinforced') ? 3 : 0)) * (w.cond === 'Damaged' ? .75 : 1)), crit, mult: burst ? b.mult : 1, ammo: melee ? null : w.ammo,
-        dr: unitDR(u), ignore: wd.ignore || 0, bypass: D().bypass, breacher: wd.cat === 'shotgun' && dist <= 4 && has('Breacher'),
+        dr: unitDR(u), ignore, bypass: D().bypass, breacher: wd.cat === 'shotgun' && dist <= 4 && has('Breacher'),
     });
     log(head + (crit ? ` CRITICAL! ${dmg} damage through a gap in the armor!` : ` Hit for ${dmg}.`), crit ? 'gold' : '');
     if (wd.bleed && d(20) >= wd.bleed) { u.bleed = true; log(`${uname(u)} is BLEEDING.`, 'good'); }
+    if (wd.cat === 'shotgun' && dist <= 4 && has('Staggering Blast')) { u.mpDrain = 2; log(`${uname(u)} staggers: −2 MP next turn.`, 'good'); }
     damageUnit(u, dmg, { physical: true, crit, woundAt: wd.woundAt || 20, byPlayer: true });
+    return true;
+}
+function runAndGun() {
+    const wd = eqWD(); if (!has('Run and Gun') || !wd || wd.cat !== 'smg' || C.runGun || !actOK(1)) return;
+    C.ap -= 1; C.mp += 2; C.runGun = true; log('Run and Gun: +2 MP.', 'good');
+}
+function playerSuppress(x, y) {
+    const w = eqW(), wd = eqWD(); C.pending = null;
+    if (!has('Suppressive Fire') || !wd || wd.cat !== 'assault') return;
+    if (man(C.px, C.py, x, y) > effRange(w) || !hasLoS(C.px, C.py, x, y) || blocksLoS(x, y)) return log('Pick a point within your rifle\'s range and in sight.', 'warn');
+    const cost = wpnCost(3); if (!actOK(cost)) return;
+    if (w.jammed || w.cond === 'Broken' || w.mag < 3) return log('Suppressive Fire needs a working rifle with 3 rounds loaded.', 'warn');
+    C.ap -= cost; w.mag -= 3; C.attacked = true; // ammo use isn't specified; one burst's worth is assumed
+    log('SUPPRESSIVE FIRE: you rake the area.', 'gold');
+    C.units.forEach(u => {
+        if (!active(u) || man(u.x, u.y, x, y) > 4) return;
+        if (u.kind === 'human') u.suppressed = true;
+        const agi = u.kind === 'mutant' ? u.m.agi : 0, r = d(20) + agi;
+        if (r < 13) { u.drain = (u.drain || 0) + 2; log(`${uname(u)} is pinned down (${r} vs DC 13): −2 AP next turn${u.kind === 'human' ? ', Suppressed' : ''}.`, 'good'); }
+        else log(`${uname(u)} keeps its head (${r} vs DC 13)${u.kind === 'human' ? ' but is Suppressed' : ''}.`);
+    });
 }
 function reload() {
     const w = eqW(), wd = eqWD(); if (!w || !wd.cal) return;
     if (w.cond === 'Broken') return log('Broken weapons cannot be loaded.', 'alert');
-    const cost = reloadCost(); if (!actOK(cost)) return;
-    const have = ammoCount(wd.cal, w.ammo), need = capOf(w) - w.mag;
-    if (!need) return log('Magazine already full.', 'warn');
-    if (!have) return log(`No ${w.ammo} ${wd.cal} left.`, 'alert');
-    const n = Math.min(have, need); C.ap -= cost; w.mag += n; S.p.ammo[wd.cal][w.ammo] -= n;
-    log(`Reloaded ${w.name} (${w.mag}/${capOf(w)} ${w.ammo}).`);
+    const o = dualReady() ? offW() : null, cost = reloadCost() + (o ? 1 : 0);
+    if (!actOK(cost)) return;
+    const load = x => { const xd = WEAPONS[x.name], n = Math.min(ammoCount(xd.cal, x.ammo), capOf(x) - x.mag); if (n > 0) { x.mag += n; S.p.ammo[xd.cal][x.ammo] -= n; } return n; };
+    if (capOf(w) === w.mag && (!o || capOf(o) === o.mag)) return log('Magazine already full.', 'warn');
+    const n = load(w) + (o ? load(o) : 0);
+    if (!n) return log(`No ${w.ammo} ${wd.cal} left.`, 'alert');
+    C.ap -= cost;
+    log(`Reloaded ${w.name} (${w.mag}/${capOf(w)} ${w.ammo})${o ? ` and ${o.name} (${o.mag}/${capOf(o)})` : ''}.`);
 }
 function clearJam() { const w = eqW(); if (!w || !w.jammed) return; const c = jamCost(); if (!actOK(c)) return; C.ap -= c; w.jammed = false; log('Jam cleared.'); }
 function standUp() { if (!myTurn() || !S.p.st.prone || C.ap < 1) return; C.ap -= 1; S.p.st.prone = false; log('You get back on your feet.'); }
@@ -1933,14 +2063,16 @@ function rollArtifact(zt) {
     while (t >= 1 && !(pool = Object.keys(ARTS).filter(n => !ARTS[n].legend && ARTS[n].tier === t)).length) t--;
     return pick(pool);
 }
-const interactable = (x, y) => 'DTSH'.includes(tileAt(x, y)) && tileAt(x, y) !== '#';
+const liveObj = (x, y) => { const o = C.objs[k(x, y)]; return o && !o.done ? o : null; };
+const interactable = (x, y) => ('DTSHR'.includes(tileAt(x, y)) && tileAt(x, y) !== '#') || !!liveObj(x, y);
 function interact() {
     const t = adjacentTile(interactable);
     if (!t) return log('Nothing to interact with next to you.', 'warn');
     if (!actOK(2)) return;
     C.ap -= 2;
-    const [x, y] = t, tile = tileAt(x, y), p = S.p;
-    if (tile === 'D') {
+    const [x, y] = t, tile = tileAt(x, y), p = S.p, o = liveObj(x, y);
+    if (o) objCheck(o, x, y);
+    else if (tile === 'D') {
         const r = d(20), m = Math.max(statMod(p.stats.S), statMod(p.stats.I)), tot = r + m;
         if (tot >= 13) { C.map[y][x] = '.'; log(`Door forced (${r}${sgn(m)} = ${tot} vs DC 13).`, 'good'); }
         else log(`The door holds (${r}${sgn(m)} = ${tot} vs DC 13).`);
@@ -1950,7 +2082,8 @@ function interact() {
     checkRank();
 }
 function container(t) {
-    const items = []; for (let i = 2 + d(4); i > 0; i--) items.push(...rollLoot(t, 'container'));
+    let n = 2 + d(4); if (has('Scavenger')) n = Math.max(n, 2 + d(4));
+    const items = []; for (; n > 0; n--) items.push(...rollLoot(t, 'container'));
     C.loot.push(...items);
     log(`You pry open the crates: ${items.length} item(s) inside.`, 'gold');
 }
@@ -2094,6 +2227,11 @@ function hurtPlayer(dmg, o = {}) {
             else { p.armor.cond = degrade(p.armor.cond); log(`Your ${p.armor.name} is battered: ${p.armor.cond}.`, 'warn'); }
         }
     }
+    if (mode === 'combat' && C && p.hp > 0 && p.hp < 30 && has('Adrenaline Surge') && !C.adrenaline && !C.reacted) {
+        C.adrenaline = true; C.reacted = true; p.temp += 20; p.tempTurns = Math.max(p.tempTurns, has('Iron Will') ? 8 : 4);
+        if (C.enemyPhase) C.bonusAp = (C.bonusAp || 0) + 2; else C.ap += 2;
+        log('ADRENALINE SURGE: +20 temporary HP and 2 AP!', 'gold');
+    }
     if (mode === 'combat' && C && p.hp > 0 && p.hp <= 20 && !C.injected && p.armor && p.armor.mods.includes('Auto-Injector')) {
         const med = ['Scientific Medkit', 'Military Medkit', 'Basic Medkit', 'Scientific Stimpak', 'Military Stimpak', 'Basic Stimpak'].find(n => count(n) > 0);
         if (med) { C.injected = true; take(med); log(`AUTO-INJECTOR fires: ${med}.`, 'good'); applyItem(med); }
@@ -2229,11 +2367,13 @@ function actHuman(u) {
         if (shaken && ap >= 2) { shaken.morale = 'Steady'; ap -= 2; log(`${uname(u)} rallies ${uname(shaken)} back into the fight.`, 'warn'); }
     }
     let mp = u.mpMax; if (wd.cat === 'heavy') mp = Math.min(mp, 2); if (u.wounds.leg) mp = Math.max(1, mp - 2);
+    mp = Math.max(0, mp - (u.mpDrain || 0)); u.mpDrain = 0;
     const here = pDist(u);
     if (u.morale === 'Shaken') npcMoveTo(u, mp, (x, y) => man(x, y, C.px, C.py) >= here, (x, y) => -man(x, y, C.px, C.py) * 2 - (nearCover(x, y) ? 4 : 0));
     else if (u.role === 'Anchor' || u.role === 'Leader') npcMoveTo(u, mp, (x, y) => canShootFrom(u, x, y), (x, y) => (nearCover(x, y) ? -3 : 0) + (man(x, y, C.px, C.py) < 3 ? 4 : 0));
     else if (u.role === 'Rusher') npcMoveTo(u, mp, (x, y) => canShootFrom(u, x, y), (x, y) => (coverFor(x, y, C.px, C.py, false).flanked ? -2 : 0));
     else npcMoveTo(u, mp, (x, y) => canShootFrom(u, x, y), (x, y) => { const cv = coverFor(x, y, C.px, C.py, melee); return cv.bonus ? 4 : cv.flanked ? -3 : 0; });
+    overwatch(u); if (!active(u)) return;
     if (u.weapon.jammed && ap >= 1) { ap--; u.weapon.jammed = false; log(`${uname(u)} clears a jam.`); }
     if (u.grenades.frag > 0 && ap >= 2 && C.sameCover >= 2 && pDist(u) <= 8 && hasLoS(u.x, u.y, C.px, C.py)) {
         u.grenades.frag--; ap -= 2; detonate('Frag Grenade', u, C.px, C.py);
@@ -2256,7 +2396,7 @@ function npcAttack(u, burst) {
     u.aim = 0; u.cmd = 0;
     const cov = coverFor(u.x, u.y, C.px, C.py, melee);
     if (cov.flanked) hb += 2;
-    const ac = playerBaseAC() + cov.bonus + (C.takeCover && cov.bonus ? 2 : 0) + (melee && C.evasive ? 2 : 0);
+    const ac = playerAC() + cov.bonus + (C.takeCover && cov.bonus ? 2 : 0) + (melee && C.evasive ? 2 : 0);
     const r = roll(highGroundAdv(u.x, u.y, C.px, C.py, cov) ? 1 : 0);
     C.attacksOnPlayer++;
     const verb = burst ? 'bursts' : melee ? 'strikes' : 'fires';
@@ -2282,7 +2422,7 @@ function actMutant(u) {
     const dp = () => pDist(u);
     const band = (lo, hi, los) => (x, y) => { const dd = man(x, y, C.px, C.py); return dd >= lo && dd <= hi && (!los || hasLoS(x, y, C.px, C.py)); };
     const adj = (x, y) => man(x, y, C.px, C.py) === 1;
-    const mp = u.mp;
+    const mp = Math.max(0, u.mp - (u.mpDrain || 0)); u.mpDrain = 0;
     if (m.beh === 'ranged') {
         npcMoveTo(u, mp, band(3, 5, true));
         if (dp() <= m.psi && hasLoS(u.x, u.y, C.px, C.py)) mutantAttack(u, 0);
@@ -2325,10 +2465,11 @@ function groundSlam(u) {
     if (r + m < 13 && !D().noProne) { S.p.st.prone = true; log(`Knocked PRONE (Agility ${r}${sgn(m)} vs DC 13).`, 'warn'); }
 }
 function mutantAttack(u, adv) {
+    overwatch(u); if (!active(u)) return;
     const m = u.m;
     if (m.pack && C.units.some(o => o !== u && active(o) && o.kind === 'mutant' && o.m.pack && man(o.x, o.y, u.x, u.y) === 1)) adv = 1;
     const psi = !!m.psi;
-    let ac = playerBaseAC(), cov = { bonus: 0 };
+    let ac = playerAC(), cov = { bonus: 0 };
     if (psi) { cov = coverFor(u.x, u.y, C.px, C.py, false); ac += cov.bonus + (C.takeCover && cov.bonus ? 2 : 0); }
     else if (C.evasive) ac += 2;
     const r = roll(adv), atk = m.agi + (u.atkBonus || 0), tot = r.die + atk;
@@ -2343,6 +2484,12 @@ function mutantAttack(u, adv) {
         if (m.neural) { const s = d(20) + statMod(S.p.stats.I); if (s < m.neural) { addDrain(1); log(`Neural overload (Int ${s} vs DC ${m.neural}): −1 AP next turn.`, 'warn'); } }
         return;
     }
+    if (C.held === 'parry' && !C.reacted) {
+        C.held = null; C.reacted = true;
+        const pr = d(20), pm = statMod(S.p.stats.A);
+        if (pr + pm >= 14) { log(`${head} DESPERATE PARRY (${pr}${sgn(pm)} vs DC 14): you turn the blow aside!`, 'good'); return; }
+        log(`Desperate Parry fails (${pr + pm} vs DC 14).`, 'warn');
+    }
     const dr = playerDR('phys', 'mutant') * (1 - (m.ignore || 0));
     const dmg = Math.max(1, Math.round(m.dmg * (crit ? 2 : 1) * (1 - dr)));
     if (hurtPlayer(dmg, { msg: `${head} HIT for ${dmg}${crit ? ' (CRITICAL)' : ''}.`, physical: true, crit: r.die === 20 })) return;
@@ -2356,7 +2503,25 @@ function endTurn() {
     C.pending = null;
     C.suppressed = false;
     if (!hostilesLeft()) { startPlayerTurn(); return; }
+    C.entrenched = has('Entrenched') && !C.mpSpent;
+    if (C.entrenched) log('Entrenched: +20% Phys-DR until your next turn.', 'good');
+    C.repoAC = has('Tactical Reposition') && playerHasCover() ? 1 : 0;
+    const need = { ow: 2, parry: 1 }[C.hold];
+    if (need && C.ap >= need) {
+        C.held = C.hold; C.ap -= need;
+        C.owSeen = new Set(C.units.filter(u => active(u) && visible(u) && hasLoS(C.px, C.py, u.x, u.y)).map(u => u.id));
+        log(C.held === 'ow' ? 'You hold 2 AP for Overwatch.' : 'You hold 1 AP for a Desperate Parry.');
+    }
     enemyRound();
+}
+const playerAC = () => playerBaseAC() + ((C && C.repoAC) || 0);
+function overwatch(u) {
+    if (C.held !== 'ow' || C.reacted || !active(u) || !visible(u) || C.owSeen.has(u.id)) return;
+    const w = eqW(), wd = eqWD();
+    if (!wd || wd.cat !== 'sniper' || w.jammed || w.cond === 'Broken' || w.mag < 1 || pDist(u) > effRange(w) || !hasLoS(C.px, C.py, u.x, u.y)) return;
+    C.held = null; C.reacted = true;
+    log(`OVERWATCH: ${uname(u)} steps into your sights!`, 'gold');
+    fireShot(w, u, false, 0);
 }
 function checkClear() {
     if (mode !== 'combat' || !C || !C.hadEnemies || C.cleared || hostilesLeft()) return;
@@ -2387,7 +2552,8 @@ function checkClear() {
 function condRoll() { const r = d(20); return r <= 7 ? 'Damaged' : r <= 14 ? 'Dirty' : 'Working'; }
 function npcWeaponLoot(u) { const wd = WEAPONS[u.weapon.name]; return [{ kind: 'weapon', name: wd.name, cond: condRoll(), mag: wd.cal ? d(4) + 1 : 0 }]; }
 function npcExtraLoot(u, withArmor) {
-    const tot = Math.min(10, d(10) + [0, 0, 1, 1, 2, 2, 3][u.rank]);
+    let r = d(10); if (has('Scavenger')) r = Math.max(r, d(10));
+    const tot = Math.min(10, r + [0, 0, 1, 1, 2, 2, 3][u.rank]);
     const n = tot <= 3 ? 0 : tot <= 6 ? 1 : tot <= 8 ? 2 : tot === 9 ? 3 : 4;
     const out = []; let armor = false;
     const worn = () => { armor = true; return { kind: 'armor', name: u.armor.name, cond: condRoll() }; };
@@ -2543,8 +2709,7 @@ function viewCreate() {
     });
     h += '<h3>Loadout</h3>';
     for (const n in LOADOUTS) h += B(`<b>${n}</b>: ${LOADOUTS[n].desc}`, () => { S.loadout = n; }, { cls: 'btn' + (S.loadout === n ? ' sel' : '') });
-    h += '<h3>Starting perk</h3>';
-    for (const n in PERKS) h += B(`<b>${n}</b>: ${PERKS[n]}`, () => { S.startPerk = n; }, { cls: 'btn' + (S.startPerk === n ? ' sel' : '') });
+    h += '<h3>Starting perk</h3>' + perkButtons(n => { S.startPerk = n; }, n => S.startPerk === n);
     h += '<br>' + B('ENTER THE ZONE', startGame, { dis: !S.startPerk || left < 0, style: 'border-color:#ffd700;color:#ffd700' });
     if (!S.startPerk) h += '<p class="muted center">Choose a starting perk.</p>';
     return h;
@@ -2559,10 +2724,18 @@ function viewEndgame() {
         + `<p class="center">Your sponsor: <b>${sp}</b>. Their plan: <b>${ENDINGS[e].title}</b> — ${ENDINGS[e].text}</p>`
         + B(`Open the Last Gate — ${ENDINGS[e].title}`, resolveEnding, { style: 'border-color:#ffd700;color:#ffd700' });
 }
+function perkButtons(onPick, isSel = () => false) {
+    let h = '';
+    [...new Set(Object.values(PERKS).map(x => x[0]))].forEach(cat => {
+        const names = Object.keys(PERKS).filter(n => PERKS[n][0] === cat && !has(n));
+        if (!names.length) return;
+        h += `<div class="row muted">${cat}</div>`;
+        names.forEach(n => { h += B(`<b>${n}</b>: ${PERKS[n][1]}`, () => onPick(n), { cls: 'btn' + (isSel(n) ? ' sel' : '') }); });
+    });
+    return h;
+}
 function viewPerk() {
-    let h = '<div class="panel gold-b"><h2 class="gold">PERK AVAILABLE</h2>';
-    for (const n in PERKS) if (!has(n)) h += B(`<b>${n}</b>: ${PERKS[n]}`, () => selectPerk(n));
-    return h + '</div>';
+    return '<div class="panel gold-b"><h2 class="gold">PERK AVAILABLE</h2>' + perkButtons(selectPerk) + '</div>';
 }
 function viewCamp() {
     const c = S.c, area = c.area > 70 ? '<span class="good">Abundant</span>' : c.area > 30 ? '<span class="warn">Depleting</span>' : '<span class="alert">Picked clean</span>';
@@ -2611,6 +2784,7 @@ function viewZone() {
     return h;
 }
 function shopBlock({ title, items, mul, id, baseline, repairs, sellMul = 1, extra = '' }) {
+    if (has('Haggler')) { mul *= .85; sellMul *= 1.15; }
     const p = S.p, pr = n => Math.max(1, Math.round(n * mul));
     let h = `<h3>${title}</h3>`;
     if (mul < 1) h += `<p class="good center small">Discount: −${Math.round((1 - mul) * 100)}%.</p>`;
@@ -2618,8 +2792,11 @@ function shopBlock({ title, items, mul, id, baseline, repairs, sellMul = 1, extr
     h += extra;
     if (baseline) {
         h += '<div class="row muted">Baseline supplies (always stocked):</div>';
-        BASELINE.forEach(n => { const c = pr(ITEMS[n].price); h += B(`${itemLabel({ kind: 'item', name: n })} — ${c} Ru`, () => { if (payRu(c)) { addItem(n); log(`Bought ${n}.`); } }); });
-        if (!p.backpack) { const c = pr(300); h += B(`Small Canvas Sack (+10kg) — ${c} Ru`, () => { if (payRu(c)) { p.backpack = 'Small Canvas Sack'; log('Bought a Small Canvas Sack.'); } }); }
+        BASELINE.forEach(n => {
+            const c = pr(ITEMS[n].price), buy = q => () => { if (payRu(c * q)) { addItem(n, q); log(`Bought ${q}× ${n}.`); } };
+            h += `<div class="inv-item"><span>${itemLabel({ kind: 'item', name: n })} — ${c} Ru</span><span>${B('Buy 1', buy(1), { cls: 'inv-btn' })} ${B('Buy 5', buy(5), { cls: 'inv-btn' })}</span></div>`;
+        });
+        if (!p.backpack) { const c = pr(80); h += B(`Small Canvas Sack (+10kg) — ${c} Ru`, () => { if (payRu(c)) { p.backpack = 'Small Canvas Sack'; log('Bought a Small Canvas Sack.'); } }); }
         const seen = new Set(); let ammo = '';
         p.weapons.forEach(w => {
             const wd = WEAPONS[w.name], key = wd.cal + '|' + wd.cat; if (!wd.cal || seen.has(key)) return; seen.add(key);
@@ -2761,9 +2938,10 @@ function viewSheet() {
         const wd = WEAPONS[x.name], eq = x.id === p.eq;
         let btns = '';
         if (!eq) btns += B('Equip', () => equipWeapon(x.id), { cls: 'inv-btn' });
+        if (!eq && has('Gunslinger') && wd.cat === 'sidearm') btns += B(p.off === x.id ? 'Off-hand ✓' : 'Off-hand', () => { p.off = p.off === x.id ? null : x.id; }, { cls: 'inv-btn' });
         if (wd.cal) btns += B(`Ammo: ${AMMO[x.ammo].short} ▸`, () => cycleAmmo(x), { cls: 'inv-btn' });
         if ((x.cond === 'Damaged' || x.cond === 'Broken') && count('Field Repair Kit')) btns += B('Repair kit', () => useRepairKit(x), { cls: 'inv-btn' });
-        h += `<div class="inv-item" style="${eq ? 'color:#4f4' : ''}"><span>${eq ? '[Eq] ' : ''}${x.name} (${x.cond})${x.upg.length ? ` [${x.upg.join(', ')}]` : ''} — ${CAT[wd.cat].label}, ${wd.dmg} dmg, rng ${wd.range}${wd.cal ? `, ${x.mag}/${capOf(x)} ${wd.cal} ${AMMO[x.ammo].short}` : ''}</span><span>${btns}</span></div>`;
+        h += `<div class="inv-item" style="${eq ? 'color:#4f4' : ''}"><span>${eq ? '[Eq] ' : p.off === x.id && has('Gunslinger') ? '[Off-hand] ' : ''}${x.name} (${x.cond})${x.upg.length ? ` [${x.upg.join(', ')}]` : ''} — ${CAT[wd.cat].label}, ${wd.dmg} dmg, rng ${wd.range}${wd.cal ? `, ${x.mag}/${capOf(x)} ${wd.cal} ${AMMO[x.ammo].short}` : ''}</span><span>${btns}</span></div>`;
     });
     h += '<h3>Armor</h3>';
     if (p.armor) {
@@ -2777,7 +2955,7 @@ function viewSheet() {
     p.belt.forEach((n, i) => { h += `<div class="inv-item" style="color:#f8f"><span>${n} — ${artDesc(n)}</span>${B('Remove', () => removeArt(i), { cls: 'inv-btn' })}</div>`; });
     p.arts.forEach((n, i) => { h += `<div class="inv-item"><span>${n} — ${artDesc(n)}</span>${B('Wear', () => wearArt(i), { cls: 'inv-btn', dis: p.belt.length >= d0.beltSlots })}</div>`; });
     if (!p.belt.length && !p.arts.length) h += '<div class="muted small">No artifacts. Step into anomalies, then search them.</div>';
-    h += '<h3>Perks</h3>' + p.perks.map(n => `<div class="row">${n}: <span class="muted">${PERKS[n]}</span></div>`).join('');
+    h += '<h3>Perks</h3>' + p.perks.map(n => `<div class="row">${n}: <span class="muted">${PERKS[n][1]}</span></div>`).join('');
     h += '<h3>World State</h3>';
     h += `<div class="row">Day ${w.day} · Crossings since rest: ${w.crossings}/3 · Visited: ${w.visited.join(', ')}</div>`;
     h += `<div class="row">Hidden connections: ${w.found.join(', ') || 'none'}</div>`;
@@ -2789,7 +2967,7 @@ function viewSheet() {
 function viewCombat() {
     const p = S.p, w = eqW(), wd = eqWD(), hostile = hostilesLeft(), mine = myTurn();
     let h = `<h2 class="${hostile ? 'alert' : ''}">${hostile ? 'TACTICAL COMBAT' : 'EXPLORING'} — ${C.lm.toUpperCase()}, ${C.zone.toUpperCase()}</h2>`;
-    h += `<div class="apbar">Turn ${C.turn} · AP ${C.ap}/${C.apMax} · MP ${C.mp}/${C.mpMax} · AC ${playerBaseAC()}${C.takeCover ? ' (+2 taking cover)' : ''}${C.evasive ? ' (+2 vs melee)' : ''}</div>`;
+    h += `<div class="apbar">Turn ${C.turn} · AP ${C.ap}/${C.apMax} · MP ${C.mp}/${C.mpMax}${C.coverMp ? ` (+${C.coverMp} cover MP)` : ''} · AC ${playerAC()}${C.takeCover ? ' (+2 taking cover)' : ''}${C.evasive ? ' (+2 vs melee)' : ''}</div>`;
     if (w) h += `<div class="small center">${w.name} (${w.cond})${wd.cal ? ` — ${w.jammed ? '<span class="alert">JAMMED</span>' : `${w.mag}/${capOf(w)} ${AMMO[w.ammo].short}`}, range ${effRange(w)}` : ' — melee'}</div>`;
     const flags = [];
     if (p.st.prone) flags.push('<span class="alert">PRONE</span>');
@@ -2797,11 +2975,13 @@ function viewCombat() {
     if (C.aim) flags.push(`<span class="good">AIM +${C.aim}</span>`);
     if (C.advNext) flags.push('<span class="good">ADVANTAGE next attack</span>');
     if (starving()) flags.push('<span class="alert">STARVING +1 AP</span>');
+    if (C.hold) flags.push(`<span class="good">Will hold AP for ${C.hold === 'ow' ? 'Overwatch' : 'Desperate Parry'}</span>`);
+    if (dualReady()) flags.push(`<span class="good">Dual-wielding ${offW().name} (${offW().mag} rds)</span>`);
     const ping = detectorPing(); if (ping !== null) flags.push(`<span class="warn">Detector beeping: anomaly within ${ping} tile(s)</span>`);
     if (flags.length) h += `<div class="small center">${flags.join(' · ')}</div>`;
-    if (C.pending) h += `<div class="warn small center">Click a tile to throw the ${C.pending} (within 8, in sight). ${B('Cancel', () => { C.pending = null; }, { cls: 'inv-btn' })}</div>`;
+    if (C.pending) h += `<div class="warn small center">${C.pending === 'Suppressive Fire' ? 'Click a point within your rifle\'s range for Suppressive Fire.' : `Click a tile to throw the ${C.pending} (within 8, in sight).`} ${B('Cancel', () => { C.pending = null; }, { cls: 'inv-btn' })}</div>`;
     h += gridHTML();
-    h += '<div class="small muted center">@ you · digits: hostiles (click to target) · # wall · C light / = hard cover · t trench · ^ high ground · ~ difficult · D door · T terminal · S stash · H hatch/vault · ! anomaly · shaded: reachable</div>';
+    h += '<div class="small muted center">@ you · digits: hostiles (click to target) · # wall · C light / = hard cover · t trench · ^ high ground · ~ difficult · D door · T terminal · S stash · H hatch/vault · P PDA · L electronic lock · R blast door · ! anomaly · shaded: reachable</div>';
     C.units.forEach((u, i) => {
         if (!u.alive || u.gone) return;
         const seen = visible(u), sel = u.id === C.target;
@@ -2820,8 +3000,10 @@ function viewCombat() {
     if (w && hostile) {
         if (w.jammed) c1 += B(`Clear Jam (${jamCost()} AP)`, clearJam, { cls: 'c-btn red' });
         else {
-            c1 += B(`${wd.cat === 'melee' ? 'Strike' : 'Shoot'} (${attackCost(false)} AP) [F]`, () => playerAttack(false), { cls: 'c-btn red', dis });
+            c1 += B(`${wd.cat === 'melee' ? 'Strike' : dualReady() ? 'Dual-shot' : 'Shoot'} (${attackCost(false)} AP) [F]`, () => playerAttack(false), { cls: 'c-btn red', dis });
             if (burstOf(wd)) c1 += B(`Burst (${attackCost(true)} AP) [B]`, () => playerAttack(true), { cls: 'c-btn red', dis });
+            if (has('Double Tap') && wd.cat === 'sidearm' && !dualReady()) c1 += B(`Double Tap (${wpnCost(3)} AP)`, () => playerAttack(false, true), { cls: 'c-btn red', dis });
+            if (has('Suppressive Fire') && wd.cat === 'assault') c1 += B(`Suppressive Fire (${wpnCost(3)} AP)`, () => { C.pending = 'Suppressive Fire'; }, { cls: 'c-btn red', dis });
         }
         c1 += B('Aim (1 AP)', aim, { cls: 'c-btn', dis });
     }
@@ -2839,6 +3021,9 @@ function viewCombat() {
         if (curTarget() && curTarget().kind === 'human') c2 += B('Intimidate (2 AP)', intimidate, { cls: 'c-btn blue', dis });
         ['Frag Grenade', 'Smoke Grenade', 'Flashbang'].forEach(g => { if (count(g)) c2 += B(`${g} ×${count(g)} (${wpnCost(2)} AP)`, () => { C.pending = g; }, { cls: 'c-btn blue', dis }); });
         if (C.units.some(u => active(u) && u.leapReady)) c2 += B('Dodge leap (1 AP)', dodgeLeap, { cls: 'c-btn blue', dis: dis || !!C.dodge });
+        if (has('Run and Gun') && wd && wd.cat === 'smg') c2 += B('Run and Gun (1 AP, +2 MP)', runAndGun, { cls: 'c-btn blue', dis: dis || C.runGun });
+        if (has('Overwatch')) c2 += B(C.hold === 'ow' ? 'Overwatch: ON' : 'Hold 2 AP: Overwatch', () => { C.hold = C.hold === 'ow' ? null : 'ow'; }, { cls: 'c-btn blue' });
+        if (has('Desperate Parry')) c2 += B(C.hold === 'parry' ? 'Parry: ON' : 'Hold 1 AP: Parry', () => { C.hold = C.hold === 'parry' ? null : 'parry'; }, { cls: 'c-btn blue' });
     }
     c2 += B('Search anomaly (2 AP)', searchAnomaly, { cls: 'c-btn pur', dis: dis || !adjacentTile(searchable) });
     c2 += B('Interact D/T/S/H (2 AP)', interact, { cls: 'c-btn pur', dis: dis || !adjacentTile(interactable) });
@@ -2868,7 +3053,7 @@ function combatLootPanel() {
     return h;
 }
 function gridHTML() {
-    const reach = myTurn() && !C.pending && !S.p.st.prone ? dijkstra(C.px, C.py, playerPass) : null;
+    const reach = myTurn() && !C.pending && !S.p.st.prone ? dijkstra(C.px, C.py, playerPass, playerCost) : null;
     let h = '<div class="grid">';
     for (let y = 0; y < C.H; y++) {
         h += '<div class="grow">';
@@ -2876,6 +3061,7 @@ function gridHTML() {
             let ch = C.map[y][x], cls = TILE_CLS[ch] || '';
             const a = C.anoms[k(x, y)];
             if (a && a.revealed) { ch = '!'; cls = 'c-anom' + (a.searched ? ' c-dim' : ''); }
+            const ob = C.objs[k(x, y)]; if (ob && !ob.done && ob.type !== 'R') { ch = ob.type; cls = 'c-term'; }
             if (smokeAt(x, y)) cls += ' c-smoke';
             const ui = C.units.findIndex(u => onMap(u) && u.x === x && u.y === y);
             if (x === C.px && y === C.py) { ch = '@'; cls = 'c-player'; }
@@ -2883,7 +3069,7 @@ function gridHTML() {
                 const u = C.units[ui]; ch = String(ui + 1);
                 cls = u.surrendered ? 'c-dim' : u.kind === 'human' ? 'c-human' : 'c-mutant';
                 if (u.id === C.target) cls += ' c-target';
-            } else if (reach) { const dd = reach.dist[y * C.W + x]; if (dd > 0 && dd <= C.mp) cls += ' c-reach'; }
+            } else if (reach) { const dd = reach.dist[y * C.W + x]; if ((x !== C.px || y !== C.py) && dd <= C.mp + coverMpFor(x, y)) cls += ' c-reach'; }
             h += `<span class="cell ${cls}" data-x="${x}" data-y="${y}">${ch}</span>`;
         }
         h += '</div>';

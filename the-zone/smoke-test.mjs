@@ -83,6 +83,9 @@ await ev(() => { tab = 'quests'; render(); });
 await page.click('text=Turn in to Old Man Yefim');
 if (await ev(() => S.w.arcs.yefim) !== 1) fail('Yefim stage 1 did not complete');
 
+// Count file-05 mechanics as they fire, so a silent no-op perk fails the test.
+await ev(() => { window.seen = {}; const orig = log; const keys = ['OVERWATCH', 'DESPERATE PARRY', 'Desperate Parry fails', 'ADRENALINE', 'SUPPRESSIVE FIRE', 'Buckshot spread', 'staggers', 'Hit and Run', 'Run and Gun', 'Entrenched', 'Controlled Taps', 'Shot (Walker P9m)'];
+    log = (m, c) => { keys.forEach(k => { if (String(m).includes(k)) seen[k] = (seen[k] || 0) + 1; }); orig(m, c); }; });
 // Auto-play combat in every zone/landmark, many times.
 const lms = await ev(() => Object.keys(ZONES).flatMap(z => ZONES[z].lms.map(([lm]) => [z, lm])));
 let fights = 0, cleared = 0;
@@ -91,15 +94,20 @@ for (let round = 0; round < 3; round++) {
         const res = await page.evaluate(([zone, lm]) => {
             mode = 'world'; S.w.zone = zone; S.p.hp = 100; S.p.st = { bleed: false, toxic: false, rad: false, arm: false, leg: false, prone: false, drain: 0 };
             S.w.story.done = false;
-            for (const f of ['Frag Grenade', 'Smoke Grenade', 'Flashbang', 'Basic Medkit']) S.p.inv[f] = 2;
-            addAmmo('5.45x39mm', 'Standard', 300); addAmmo('5.45x39mm', 'Hollow Point', 60); topOffAll();
+            for (const f of ['Frag Grenade', 'Smoke Grenade', 'Flashbang', 'Basic Medkit', 'Energy Drink', 'Bandage']) S.p.inv[f] = 2;
+            S.p.perks = Object.keys(PERKS).filter(n => Math.random() < .6); // a random half-plus of every perk
+            if (!S.p.weapons.some(w => w.name === 'PMm')) ['PMm', 'Walker P9m', 'Chaser 13', 'SVDm-2', 'PP-19 Bizon', 'RPD'].forEach(n => addWeapon(n));
+            S.p.off = S.p.weapons.find(w => w.name === 'Walker P9m').id;
+            ['5.45x39mm', '9x18mm', '9x19mm', '12g', '7.62x54mmR', '7.62x39mm'].forEach(c => addAmmo(c, 'Standard', 200)); addAmmo('5.45x39mm', 'Hollow Point', 60); topOffAll();
             let enc = null; for (let i = 0; i < 50 && !(enc && enc.hostile); i++) enc = rollEncounter(zone, lm);
             if (!enc || !enc.hostile) enc = mutantGroup(zoneTier(zone));
             enterTactical(zone, lm, enc.units, enc); render();
             const actions = [() => playerAttack(false), () => playerAttack(true), () => reload(), () => aim(), () => takeCover(), () => evasive(),
                 () => intimidate(), () => searchAnomaly(), () => interact(), () => dodgeLeap(), () => clearJam(), () => standUp(),
                 () => { C.pending = pick(['Frag Grenade', 'Smoke Grenade', 'Flashbang']); const t = curTarget() || C.units[0]; gridClick(t.x, t.y); },
-                () => useItem('Basic Medkit'), () => cycleAmmo(eqW()), () => equipWeapon(pick(S.p.weapons).id)];
+                () => useItem('Basic Medkit'), () => useItem('Energy Drink'), () => useItem('Bandage'), () => cycleAmmo(eqW()), () => equipWeapon(pick(S.p.weapons).id),
+                () => playerAttack(false, true), () => runAndGun(), () => { C.hold = pick(['ow', 'parry', null]); },
+                () => { C.pending = 'Suppressive Fire'; const t = curTarget() || C.units[0]; gridClick(t.x, t.y); }];
             for (let turn = 0; turn < 40 && mode === 'combat'; turn++) {
                 S.p.hp = Math.max(S.p.hp, 60);
                 const vis = C.units.filter(u => active(u));
@@ -129,7 +137,41 @@ for (let round = 0; round < 3; round++) {
     if (errors.length) break;
 }
 console.log(`fights: ${fights}, cleared: ${cleared}`);
+const seen = await ev(() => seen);
+console.log('mechanics fired:', JSON.stringify(seen));
+for (const k of ['OVERWATCH', 'ADRENALINE', 'SUPPRESSIVE FIRE', 'Hit and Run', 'Run and Gun', 'Entrenched', 'Shot (Walker P9m)']) if (!seen[k]) fail(`mechanic never fired: ${k}`);
 if (cleared === 0) fail('auto-player never cleared a fight');
+
+// Shotgun perks, set up deterministically: two adjacent targets in close range.
+const shot = await ev(() => {
+    mode = 'world'; S.w.zone = 'The Perimeter'; S.p.perks = ['Buckshot Spread', 'Staggering Blast'];
+    const units = [mkMutant('Flesh Stalker'), mkMutant('Flesh Stalker')];
+    units.forEach(u => { u.hp = u.maxHp = 9999; u.m = { ...u.m, panic: 0 }; });
+    enterTactical('The Perimeter', 'Bonfire Camp', units);
+    const w = S.p.weapons.find(x => x.name === 'Chaser 13'); S.p.eq = w.id;
+    units[0].x = C.px + 2; units[0].y = C.py; units[1].x = C.px + 2; units[1].y = C.py - 1;
+    if (!passable(units[1].x, units[1].y)) units[1].y = C.py + 1;
+    C.target = units[0].id;
+    for (let i = 0; i < 200 && !(seen['Buckshot spread'] && seen.staggers); i++) { C.ap = 9; w.mag = 6; w.jammed = false; w.cond = 'Working'; S.p.hp = 100; playerAttack(false); }
+    leaveArea(true);
+    return seen;
+});
+for (const k of ['Buckshot spread', 'staggers']) if (!shot[k]) fail(`mechanic never fired: ${k}`);
+
+// Interactive objects (file 05): PDA, electronic lock, rusted blast door.
+const objErr = await ev(() => {
+    mode = 'world'; S.w.zone = 'Abandoned City'; S.p.hp = 100; S.p.st.prone = false;
+    enterTactical('Abandoned City', 'Central Plaza', []);
+    const ru = S.p.ru; C.objs[k(C.px + 1, C.py)] = { type: 'P' };
+    for (let i = 0; i < 40 && !C.objs[k(C.px + 1, C.py)].done; i++) { C.ap = 2; interact(); }
+    if (S.p.ru !== ru + 120) return 'PDA did not pay 120 Ru';
+    C.objs[k(C.px, C.py - 1)] = { type: 'L' };
+    for (let i = 0; i < 40 && !C.objs[k(C.px, C.py - 1)].done; i++) { C.ap = 2; interact(); }
+    if (!C.loot.length) return 'electronic lock gave no loot';
+    if (!S.w.objs.cityfield[k(4, 0)] || C.map[0][4] !== 'R') return 'blast door missing from the city grid';
+    leaveArea(false); return '';
+});
+if (objErr) fail(objErr);
 
 // Living world: many days, every event and goal path.
 await ev(() => { mode = 'world'; S.w.emission = 0; for (let i = 0; i < 120; i++) { newDay(i % 2 === 0); S.w.emission = 0; } render(); });
