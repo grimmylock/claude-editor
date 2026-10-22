@@ -162,8 +162,11 @@ const shot = await ev(() => {
     units.forEach(u => { u.hp = u.maxHp = 9999; u.m = { ...u.m, panic: 0 }; });
     enterTactical('The Perimeter', 'Bonfire Camp', units);
     const w = S.p.weapons.find(x => x.name === 'Chaser 13'); S.p.eq = w.id;
-    units[0].x = C.px + 2; units[0].y = C.py; units[1].x = C.px + 2; units[1].y = C.py - 1;
-    if (!passable(units[1].x, units[1].y)) units[1].y = C.py + 1;
+    // first pair of adjacent passable cells near the player (layouts vary, so try several)
+    const cells = [[2, 0], [2, -1], [2, 1], [1, 0], [1, -1], [1, 1], [-2, 0], [-2, -1], [-2, 1], [-1, 0], [-1, -1], [-1, 1], [0, 2], [1, 2], [0, -2], [1, -2]].map(([dx, dy]) => [C.px + dx, C.py + dy]).filter(([x, y]) => passable(x, y));
+    let pair;
+    for (const c1 of cells) { const c2 = cells.find(c => c !== c1 && Math.abs(c[0] - c1[0]) + Math.abs(c[1] - c1[1]) === 1); if (c2) { pair = [c1, c2]; break; } }
+    [[units[0].x, units[0].y], [units[1].x, units[1].y]] = pair;
     C.target = units[0].id;
     for (let i = 0; i < 200 && !(seen['Buckshot spread'] && seen.staggers); i++) { C.ap = 9; w.mag = 6; w.jammed = false; w.cond = 'Working'; S.p.hp = 100; playerAttack(false); }
     leaveArea(true);

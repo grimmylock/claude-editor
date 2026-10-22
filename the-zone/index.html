@@ -87,10 +87,11 @@
 <body>
 <div id="game-container">
     <div class="top-bar">
-        <button onclick="saveGame()">[Save]</button>
-        <button onclick="loadGame()">[Load]</button>
-        <button onclick="wipeSave()">[Wipe]</button>
-        <button onclick="toggleTheme()">[Contrast]</button>
+        <button onclick="saveGame()" data-en="[Save]">[Save]</button>
+        <button onclick="loadGame()" data-en="[Load]">[Load]</button>
+        <button onclick="wipeSave()" data-en="[Wipe]">[Wipe]</button>
+        <button onclick="toggleTheme()" data-en="[Contrast]">[Contrast]</button>
+        <button id="lang-btn" onclick="setLang(LANG === 'pt' ? 'en' : 'pt')">[PT-BR]</button>
     </div>
     <div class="column" id="left-col"></div>
     <div class="column" id="mid-col">
@@ -98,10 +99,501 @@
         <div id="view"></div>
     </div>
     <div class="column" id="right-col">
-        <h2>Zone Chronicle</h2>
+        <h2 id="chronicle-title">Zone Chronicle</h2>
         <div id="log-content"></div>
     </div>
 </div>
+
+<script>
+'use strict';
+// ===================== I18N (pt-BR) =====================
+// The game builds all text in English. When pt-BR is on, finished strings (log lines and rendered
+// text) are rewritten here: first a few word-order rules, then one longest-match pass over PT.
+// Weapon, armor, artifact, mod and detector names stay in English and are protected from partial
+// translation (added as identity entries on first use).
+let LANG = 'en';
+try { LANG = localStorage.getItem('the_zone_lang') === 'pt' ? 'pt' : 'en'; } catch (e) { /* storage blocked */ }
+const PT = {
+    // ---- interface ----
+    '[Save]': '[Salvar]', '[Load]': '[Carregar]', '[Wipe]': '[Apagar]', '[Contrast]': '[Contraste]',
+    'Zone Chronicle': 'Crônica da Zona', 'NEW STALKER': 'NOVO STALKER', 'Build your character to begin.': 'Crie seu personagem para começar.',
+    'A solo survival RPG in the Exclusion Zone.': 'Um RPG de sobrevivência solo na Zona de Exclusão.',
+    'THE ZONE': 'A ZONA', 'Name': 'Nome', 'point(s) left (each 6–16)': 'ponto(s) restante(s) (cada um entre 6 e 16)', 'Attributes': 'Atributos',
+    'Strength — doors, heavy objects': 'Força — portas, objetos pesados', 'Perception — spotting, searching': 'Percepção — detectar, procurar',
+    'Agility — attacks, anomaly avoidance': 'Agilidade — ataques, evitar anomalias', 'Intelligence — terminals, artifacts': 'Inteligência — terminais, artefatos',
+    'Loadout': 'Equipamento inicial', 'Starting perk': 'Talento inicial', 'ENTER THE ZONE': 'ENTRAR NA ZONA', 'Choose a starting perk.': 'Escolha um talento inicial.',
+    'Language': 'Idioma',
+    'Day': 'Dia', 'Hunger': 'Fome', 'Thirst': 'Sede', 'Tiredness': 'Cansaço', 'Carry': 'Carga', 'Status': 'Estado', 'Healthy': 'Saudável',
+    'Perks': 'Talentos', 'None': 'Nenhum', 'Main Story': 'História Principal', 'Fragments': 'Fragmentos', 'Inventory': 'Inventário', 'Empty.': 'Vazio.',
+    'Ammo': 'Munição', 'Artifacts': 'Artefatos', '(worn)': '(equipado)', 'Use (2 AP)': 'Usar (2 PA)', 'Use': 'Usar', 'Fit': 'Instalar', 'Equip': 'Equipar',
+    'Bleeding': 'Sangrando', 'Toxic Bleed': 'Sangramento Tóxico', 'Irradiated': 'Irradiado', 'Wound: Arm': 'Ferida: Braço', 'Wound: Leg': 'Ferida: Perna',
+    'Prone': 'Caído', 'Starving': 'Faminto', 'Overloaded': 'Sobrecarregado', 'temp': 'temp.',
+    'EMISSION!': 'EMISSÃO!', 'move(s) to shelter!': 'movimento(s) para se abrigar!',
+    'Camp': 'Acampamento', 'Zone': 'Zona', 'Quests & Journal': 'Missões & Diário', 'Quests': 'Missões', 'Character': 'Personagem', 'Traders': 'Comerciantes',
+    'YOU DIED IN THE ZONE': 'VOCÊ MORREU NA ZONA', 'Your story ends on day': 'Sua história termina no dia', 'Load last save': 'Carregar último save',
+    'Create a new stalker': 'Criar um novo stalker',
+    'THE LAST GATE — THE SOURCE': 'O ÚLTIMO PORTÃO — A FONTE',
+    'The three Fragments resonate against the blast door. Beyond it hums the Source.': 'Os três Fragmentos ressoam contra a porta blindada. Além dela, a Fonte zumbe.',
+    'Your sponsor:': 'Seu patrocinador:', 'Their plan:': 'O plano deles:', 'Open the Last Gate': 'Abrir o Último Portão', 'PERK AVAILABLE': 'TALENTO DISPONÍVEL',
+    'The Bonfire Camp': 'O Acampamento da Fogueira', 'The fire is': 'A fogueira está', 'Area scrap:': 'Sucata na área:', 'Abundant': 'Abundante', 'Depleting': 'Escasseando', 'Picked clean': 'Esgotada',
+    'Scavenge the fence-line': 'Vasculhar a cerca', 'Light the fire (5 Wood)': 'Acender a fogueira (5 Madeira)', 'Stoke the fire (1 Wood)': 'Alimentar a fogueira (1 Madeira)',
+    'Build a lean-to (15 Wood)': 'Construir um abrigo (15 Madeira)', 'Sleep in the lean-to (+30 HP, full rest; a new day dawns)': 'Dormir no abrigo (+30 PV, descanso completo; um novo dia amanhece)',
+    "You can't sleep without a fire.": 'Não dá para dormir sem fogo.', 'Old Man Yefim sits by his footlocker under the tarp, cleaning a revolver and humming.': 'O Velho Yefim está sentado junto ao seu baú sob a lona, limpando um revólver e cantarolando.',
+    'Someone has noticed your fire.': 'Alguém notou sua fogueira.',
+    'dead': 'apagada', 'smoldering': 'em brasa', 'flickering': 'tremeluzindo', 'burning': 'queimando', 'roaring': 'ardendo forte',
+    'Raiders hold the Chokepoint Bridge. "200 Ru, or you go through us."': 'Saqueadores controlam a Ponte do Gargalo. "200 Ru, ou vai ter que passar por nós."',
+    'Pay 200 Ru': 'Pagar 200 Ru', 'Fight through (−1 Raiders rep)': 'Abrir caminho à força (−1 rep Saqueadores)', 'Turn back': 'Voltar',
+    'patrol': 'patrulha', 'Reputation:': 'Reputação:', 'They are not hostile.': 'Eles não são hostis.',
+    'Trade with them (one-time, top-of-band prices)': 'Negociar com eles (uma vez, preços no topo da faixa)', 'Let them pass': 'Deixá-los passar',
+    'Open fire': 'Abrir fogo', 'more per kill': 'mais por morte', 'personal kit (one-time)': 'equipamento pessoal (uma vez)',
+    'Tier': 'Nível', 'Hazard': 'Perigo', 'SAFE ZONE': 'ZONA SEGURA', 'SAFE': 'SEGURA', 'Indoor (shelter)': 'Interior (abrigo)', 'Outpost (shelter)': 'Posto (abrigo)', 'Outdoor': 'Ao ar livre',
+    'Factions:': 'Facções:', 'Landmarks': 'Locais', 'encounter chance': 'chance de encontro', 'Explore:': 'Explorar:',
+    'ACT 4 — ALLEGIANCE.': 'ATO 4 — LEALDADE.', 'Choose a sponsor (any Friendly faction), or go alone. Each would do something different with the Source.': 'Escolha um patrocinador (qualquer facção Amigável) ou vá sozinho. Cada um faria algo diferente com a Fonte.',
+    'Go alone — no help, no debts (ending: Take it)': 'Ir sozinho — sem ajuda, sem dívidas (final: Tomar)', 'ending:': 'final:',
+    'Enter hidden sub-node:': 'Entrar no subnível oculto:', 'Search for a hidden entry': 'Procurar uma entrada oculta', 'Routes': 'Rotas', 'Travel to': 'Viajar para',
+    'indoor': 'interior', 'shelter': 'abrigo', '[choose a sponsor first]': '[escolha um patrocinador antes]',
+    'Each trip: −1.5 Hunger, −1.5 Thirst, −1 Tiredness. Carried MREs are eaten on the march. Three crossings without rest = a new day.': 'Cada viagem: −1,5 Fome, −1,5 Sede, −1 Cansaço. Rações carregadas são comidas no caminho. Três travessias sem descanso = um novo dia.',
+    'This trip will leave you STARVING (+1 AP on weapon actions).': 'Esta viagem vai deixá-lo FAMINTO (+1 PA em ações com armas).',
+    'Discount:': 'Desconto:', 'Prices at the top of the band': 'Preços no topo da faixa', 'Baseline supplies (always stocked):': 'Suprimentos básicos (sempre em estoque):',
+    'Buy 1': 'Comprar 1', 'Buy 5': 'Comprar 5', 'Ammunition:': 'Munição:', 'for': 'para', 'rds/box': 'balas/caixa', 'Rolled stock:': 'Estoque sorteado:', 'Nothing left.': 'Nada sobrando.',
+    'Sell:': 'Vender:', 'Sell': 'Vender', '(unloaded)': '(descarregada)',
+    "Nothing to sell (equipped gear and worn artifacts aren't listed).": 'Nada para vender (equipamento em uso e artefatos equipados não aparecem).',
+    'Repairs (10% of value per Condition step):': 'Reparos (10% do valor por nível de Condição):', 'Restore': 'Restaurar', 'All your gear is Working.': 'Todo o seu equipamento está Funcional.',
+    'stock tier': 'estoque nível', 'independent': 'independente', 'Trades only with': 'Só negocia com', 'Friendlies (rep +3).': 'Amigáveis (rep +3).', "won't deal with you.": 'não negociam com você.',
+    'Rest here (full rest, 30 Ru; a new day dawns)': 'Descansar aqui (descanso completo, 30 Ru; um novo dia amanhece)',
+    'Ask Dr. Osei to decode the Lab Beta drive (+1 Ecologist)': 'Pedir à Dra. Osei para decodificar o drive do Lab Beta (+1 Ecologistas)',
+    'Anomaly Map (reveals every anomaly in one zone)': 'Mapa de Anomalias (revela todas as anomalias de uma zona)',
+    'Trade': 'Negociar', 'Wandering Trader': 'Mercador Ambulante', 'A peddler with a laden mule (this scene only)': 'Um mascate com uma mula carregada (só nesta cena)',
+    "Scavenger's Hub [SAFE ZONE]": 'Refúgio dos Catadores [ZONA SEGURA]', 'Container market. Sentinels keep the peace inside the checkpoint.': 'Mercado de contêineres. Sentinelas mantêm a paz dentro do posto de controle.',
+    'The Rusty Anchor': 'A Âncora Enferrujada', 'Rent a secure cot and sleep (50 Ru) — full HP, full rest, new day': 'Alugar um catre seguro e dormir (50 Ru) — PV cheios, descanso completo, novo dia',
+    'Buy a round and listen (20 Ru) — 1d3 rumors': 'Pagar uma rodada e ouvir (20 Ru) — 1d3 boatos', 'The Repair Yard (Technician)': 'O Pátio de Reparos (Técnico)',
+    'Upgrades: up to 3 per item, each once. 1st: 1 Mutant Part + 10% · 2nd: 2 parts (N3+) + 20% · 3rd: 3 parts (one N4+) + 30%.': 'Melhorias: até 3 por item, cada uma uma vez. 1ª: 1 Parte de Mutante + 10% · 2ª: 2 partes (N3+) + 20% · 3ª: 3 partes (uma N4+) + 30%.',
+    'Free upgrades:': 'Melhorias grátis:', 'no upgrades': 'sem melhorias', 'next:': 'próxima:', 'FREE': 'GRÁTIS', '(full)': '(completo)',
+    '1 Mutant Part (any tier)': '1 Parte de Mutante (qualquer nível)', '2 Mutant Parts (Tier 3+)': '2 Partes de Mutante (Nível 3+)', '3 Mutant Parts (one Tier 4+)': '3 Partes de Mutante (uma Nível 4+)',
+    'The Bazaar': 'O Bazar', 'quartermaster': 'intendente', 'rep': 'rep',
+    'Journal': 'Diário', 'Contracts': 'Contratos', 'Active': 'Ativos', 'No active contracts.': 'Nenhum contrato ativo.', 'Attempt': 'Tentar',
+    'Given by:': 'Dado por:', 'Complication:': 'Complicação:', 'due day': 'prazo: dia', 'Reward:': 'Recompensa:', 'a hand-picked crate': 'um caixote escolhido a dedo', 'a loot roll': 'uma rolagem de saque',
+    '+1 reputation': '+1 reputação', '10% shop discount': '10% de desconto na loja', 'a true rumor': 'um boato verdadeiro', 'a free technician upgrade': 'uma melhoria grátis do técnico',
+    'Or hand it to': 'Ou entregue para', 'instead': 'em vez disso', 'giver': 'contratante', 'Turn in to': 'Entregar para', 'the giver': 'o contratante',
+    'Hand the barracks to the': 'Entregar o quartel aos', 'Hand to': 'Entregar para', 'Better offer:': 'Oferta melhor:', 'pay +50%': 'pagam +50%',
+    'Return to the quest giver to collect.': 'Volte ao contratante para receber.', 'Storyline:': 'História:', 'complete': 'completa', 'stage': 'etapa', 'needs': 'requer', 'Friendly': 'Amigável',
+    'No work offered here right now.': 'Nenhum trabalho oferecido aqui agora.', "Quest givers are found at outposts and at the Rusty Anchor in Scavenger's Hub.": 'Contratantes ficam nos postos e na Âncora Enferrujada, no Refúgio dos Catadores.',
+    "Rusty Anchor job board (Scavenger's Hub)": 'Mural de trabalhos da Âncora Enferrujada (Refúgio dos Catadores)',
+    'Next rank:': 'Próxima patente:', '(+perk)': '(+talento)', 'Weapons': 'Armas', 'Armor': 'Armadura', 'Off-hand ✓': 'Mão secundária ✓', 'Off-hand': 'Mão secundária', '[Off-hand]': '[Mão sec.]', '[Eq]': '[Eq]',
+    'Repair kit': 'Kit de reparo', '[Worn]': '[Vestida]', 'Mods': 'Mods', 'Remove': 'Remover', 'none — fit mods from your inventory': 'nenhum — instale mods do seu inventário', 'No armor.': 'Sem armadura.', 'Wear': 'Vestir',
+    'Artifact belt': 'Cinto de artefatos', 'No artifacts. Step into anomalies, then search them.': 'Sem artefatos. Entre em anomalias e depois vasculhe-as.',
+    'World State': 'Estado do Mundo', 'Crossings since rest:': 'Travessias desde o descanso:', 'Visited:': 'Visitados:', 'Hidden connections:': 'Conexões ocultas:', 'none': 'nenhuma',
+    'Hostile': 'Hostil', 'Faction goals:': 'Objetivos das facções:', 'DONE': 'CONCLUÍDO', 'Vanguard Barracks held by:': 'Quartel Vanguarda controlado por:', 'Named NPCs:': 'NPCs nomeados:',
+    'Detector:': 'Detector:', 'Pack:': 'Mochila:', 'free upgrades': 'melhorias grátis',
+    'TACTICAL COMBAT': 'COMBATE TÁTICO', 'EXPLORING': 'EXPLORANDO', 'Turn': 'Turno', 'cover MP': 'PM de cobertura', '(+2 taking cover)': '(+2 em cobertura)', '(+2 vs melee)': '(+2 vs corpo a corpo)',
+    'JAMMED': 'TRAVADA', 'range': 'alcance', 'melee': 'corpo a corpo', 'PRONE': 'CAÍDO', 'SUPPRESSED −2': 'SUPRIMIDO −2', 'AIM': 'MIRA', 'ADVANTAGE next attack': 'VANTAGEM no próximo ataque',
+    'STARVING +1 AP': 'FAMINTO +1 PA', 'Will hold AP for': 'Vai reservar PA para', 'Dual-wielding': 'Empunhando duas armas', 'Detector beeping: anomaly within': 'Detector apitando: anomalia a até', 'tile(s)': 'quadrado(s)',
+    "Click a point within your rifle's range for Suppressive Fire.": 'Clique em um ponto dentro do alcance do seu fuzil para o Fogo de Supressão.', 'Click a tile to throw the': 'Clique em um quadrado para lançar a',
+    '(within 8, in sight).': '(até 8, à vista).', 'Cancel': 'Cancelar',
+    '@ you · digits: hostiles (click to target) · # wall · C light / = hard cover · t trench · ^ high ground · ~ difficult · D door · T terminal · S stash · H hatch/vault · P PDA · L electronic lock · R blast door · ! anomaly · shaded: reachable':
+        '@ você · números: hostis (clique para mirar) · # parede · C cobertura leve / = pesada · t trincheira · ^ terreno elevado · ~ difícil · D porta · T terminal · S esconderijo · H escotilha/cofre · P PDA · L fechadura eletrônica · R porta blindada · ! anomalia · sombreado: alcançável',
+    'Something shimmers — cloaked': 'Algo tremeluz — camuflado', 'to target at range': 'para mirar à distância', 'SURRENDERED': 'RENDIDO', 'dist': 'dist.', 'STAGGERED': 'ATORDOADO', 'CROUCHING TO LEAP': 'AGACHADO PARA SALTAR',
+    '↑ W': '↑ W', 'Clear Jam': 'Destravar', 'Strike': 'Golpear', 'Shoot': 'Atirar', 'Dual-shot': 'Disparo duplo', 'Burst': 'Rajada', 'Aim (1 AP)': 'Mirar (1 PA)', 'Reload': 'Recarregar', 'Swap:': 'Trocar:',
+    'Stand up (1 AP)': 'Levantar (1 PA)', 'Take Cover (2 AP)': 'Proteger-se (2 PA)', 'Evasive (2 AP)': 'Evasiva (2 PA)', 'Intimidate (2 AP)': 'Intimidar (2 PA)', 'Dodge leap (1 AP)': 'Esquivar do salto (1 PA)',
+    'Run and Gun (1 AP, +2 MP)': 'Correr e Atirar (1 PA, +2 PM)', 'Overwatch: ON': 'Vigilância: LIGADA', 'Hold 2 AP: Overwatch': 'Reservar 2 PA: Vigilância', 'Parry: ON': 'Aparo: LIGADO', 'Hold 1 AP: Parry': 'Reservar 1 PA: Aparo',
+    'Search anomaly (2 AP)': 'Vasculhar anomalia (2 PA)', 'Interact D/T/S/H (2 AP)': 'Interagir D/T/S/H (2 PA)', 'Flee the area (map edge)': 'Fugir da área (borda do mapa)', 'Leave the area': 'Sair da área', 'End Turn [E]': 'Encerrar Turno [E]',
+    'has surrendered.': 'se rendeu.', 'Interrogate': 'Interrogar', 'Take their gear': 'Pegar o equipamento', 'Let them go': 'Deixar ir', 'Execute': 'Executar', 'Loot': 'Saque', 'Take all': 'Pegar tudo', 'Take': 'Pegar',
+    // ---- ranks, conditions, morale, roles, categories ----
+    'Rookie': 'Novato', 'Experienced': 'Experiente', 'Professional': 'Profissional', 'Veteran': 'Veterano', 'Expert': 'Especialista', 'Master': 'Mestre', 'Legend': 'Lenda',
+    'Working': 'Funcional', 'Dirty': 'Sujo', 'Damaged': 'Danificado', 'Broken': 'Quebrado', 'Steady': 'Firme', 'Shaken': 'Abalado',
+    'Leader': 'Líder', 'Anchor': 'Âncora', 'Rusher': 'Investida', 'Flanker': 'Flanqueador',
+    'Melee': 'Corpo a corpo', 'Sidearm': 'Pistola', 'SMG': 'Submetralhadora', 'Shotgun': 'Escopeta', 'Assault Rifle': 'Fuzil de Assalto', 'Sniper Rifle': 'Fuzil de Precisão', 'Heavy Weapon': 'Arma Pesada',
+    'Sniper Rifles': 'Fuzis de Precisão', 'Assault Rifles': 'Fuzis de Assalto', 'Heavy Weapons': 'Armas Pesadas', 'Shotguns': 'Escopetas', 'Sidearms': 'Pistolas', 'Action, Economy & Survival': 'Ação, Economia & Sobrevivência',
+    'Standard': 'Padrão', 'Hollow Point': 'Ponta Oca', 'Armor Piercing': 'Perfurante', 'Dart': 'Dardo', 'Std': 'Pad',
+    'pack': 'matilha', 'swarm': 'enxame', 'ambush': 'emboscada', 'ranged': 'à distância', 'berserk': 'frenético', 'leap': 'salto',
+    'Gravitational': 'Gravitacional', 'Chemical': 'Químico', 'Thermal': 'Térmico', 'Electrical': 'Elétrico', 'LEGENDARY': 'LENDÁRIO',
+    'Calibrated': 'Calibrada', 'Reinforced': 'Reforçada', 'Extended Mag': 'Carregador Estendido', 'Hardened': 'Endurecida', 'Plating': 'Blindagem', 'Lining': 'Forro', 'Lightened': 'Aliviada', 'Braced': 'Escorada',
+    '+1 to hit': '+1 para acertar', '+3 base damage': '+3 de dano base', '+50% capacity': '+50% de capacidade', 'Loses Condition only on a natural-1 jam': 'Só perde Condição em uma trava com 1 natural',
+    'Ignores the first Condition loss each combat': 'Ignora a primeira perda de Condição em cada combate',
+    // ---- stat words ----
+    'Phys-DR': 'RD-Fís', 'Anom-DR': 'RD-Anôm', 'Phys': 'Fís', 'Anom': 'Anôm', 'HP': 'PV', 'AP': 'PA', 'MP': 'PM', 'AC': 'CA', 'DC': 'CD', 'Max HP': 'PV Máx.',
+    'dmg': 'dano', 'rng': 'alc.', 'belt': 'cinto', 'mod': 'mod', 'rds': 'balas', 'avoidance': 'evasão', ', reveals anomalies': ', revela anomalias', 'Armor mod:': 'Mod de armadura:',
+    'kg carry': 'kg de carga', 'HP regen/turn': 'PV de regeneração/turno', 'bleeding': 'sangramento', 'HP/turn': 'PV/turno', 'negates bleeding': 'anula sangramento',
+    'anomaly avoidance': 'evasão de anomalias', 'auto-pass anomaly checks': 'passa automaticamente em testes de anomalia',
+    '+1 AP, +10% Phys/Anom-DR, Max HP 75': '+1 PA, +10% RD-Fís/Anôm, PV Máx. 75', 'bypass 30% Phys-DR, kills refund 1 AP': 'ignora 30% de RD-Fís, abates devolvem 1 PA',
+    'vs mutants': 'vs mutantes', 'vs Burners': 'vs Queimadores', 'vs Electros': 'vs Elétricos', 'vs psi': 'vs psíquico', '+1 Belt Slot': '+1 espaço de cinto',
+    'Auto-uses a medkit/stimpak at ≤20 HP, once per fight': 'Usa automaticamente um kit médico/estimulante com ≤20 PV, uma vez por luta', 'Negates Radiation Pockets': 'Anula Bolsões de Radiação',
+    'temporary HP': 'PV temporários', 'temp HP': 'PV temp.',
+    // ---- factions ----
+    'Raiders': 'Saqueadores', 'Outcasts': 'Párias', 'Wanderers': 'Andarilhos', 'Prospectors': 'Garimpeiros', 'Garrison': 'Guarnição', 'Sentinels': 'Sentinelas',
+    'Liberators': 'Libertadores', 'Contractors': 'Contratados', 'Obelisk': 'Obelisco', 'Cartel': 'Cartel', 'Ecologist': 'Ecologistas', 'IZC': 'IZC', 'Alone': 'Sozinho', 'Mutant': 'Mutante',
+    // ---- mutants ----
+    'Blind Maw': 'Bocarra Cega', 'Flesh Stalker': 'Espreitador de Carne', 'Rot Swarm': 'Enxame Pútrido', 'Veil Stalker': 'Espreitador Velado', 'Alpha Stalker': 'Espreitador Alfa',
+    'Mind Weaver': 'Tecelão Mental', 'Blight Brute': 'Bruto Pestilento', 'Dread Stalker': 'Espreitador Terrível', 'Void Weaver': 'Tecelão do Vazio', 'Named': 'Nomeado',
+    'Obelisk Arch-Zealot': 'Arquizelote do Obelisco', 'Arch-Zealot': 'Arquizelote',
+    // ---- anomalies & objects ----
+    'Burner': 'Queimador', 'Electro': 'Elétrico', 'Fruit Punch': 'Ponche Ácido', 'Whirligig': 'Redemoinho', 'Radiation Pocket': 'Bolsão de Radiação',
+    'Encrypted PDA': 'PDA Criptografado', 'Electronic Lock': 'Fechadura Eletrônica', 'Rusted Blast Door': 'Porta Blindada Enferrujada',
+    // ---- items ----
+    'Wood': 'Madeira', 'Scrap Metal': 'Sucata', 'Scrap': 'Sucata', 'MRE': 'Ração', 'MREs': 'Rações', 'Bandage': 'Bandagem', 'Basic Medkit': 'Kit Médico Básico', 'Military Medkit': 'Kit Médico Militar',
+    'Scientific Medkit': 'Kit Médico Científico', 'Basic Stimpak': 'Estimulante Básico', 'Military Stimpak': 'Estimulante Militar', 'Scientific Stimpak': 'Estimulante Científico',
+    'Energy Drink': 'Energético', 'Antirad Pill': 'Pílula Antirradiação', 'Field Repair Kit': 'Kit de Reparo de Campo', 'Frag Grenade': 'Granada de Fragmentação', 'Smoke Grenade': 'Granada de Fumaça',
+    'Flashbang': 'Granada de Luz', 'Anomaly Map': 'Mapa de Anomalias', 'Mutant Part': 'Parte de Mutante', 'Small Canvas Sack': 'Saco de Lona Pequeno', 'Tourist Frame': 'Mochila de Armação',
+    'Alpha Access Keycard': 'Cartão de Acesso Alfa', 'ALPHA ACCESS KEYCARD': 'CARTÃO DE ACESSO ALFA', 'Lab Beta Research Drive': 'Drive de Pesquisa do Lab Beta', 'Sealed Chemical Drum': 'Tambor Químico Lacrado',
+    'Stolen Trade Ledger': 'Livro-Caixa Roubado', 'Intact Survey Equipment': 'Equipamento de Levantamento Intacto', 'Ammo Crates': 'Caixas de Munição', 'Isolation Ward Samples': 'Amostras da Ala de Isolamento',
+    'Hulk Cargo': 'Carga do Casco', 'Expedition Data': 'Dados da Expedição', "Yefim's Keepsake": 'Lembrança de Yefim', 'Sealed Package': 'Pacote Lacrado', 'Hardened Drive': 'Drive Blindado',
+    'Lost Quarry Equipment': 'Equipamento Perdido da Pedreira', "Bosch's Heirloom": 'Herança de Bosch', 'Gamma Relic': 'Relíquia Gama',
+    // ---- zones ----
+    'The Perimeter': 'O Perímetro', 'Toxic Marshes': 'Pântanos Tóxicos', "Smuggler's Run": 'Rota dos Contrabandistas', 'The Scrapyard': 'O Ferro-Velho', 'Industrial Basin': 'Bacia Industrial',
+    'Black Valley': 'Vale Negro', "Scavenger's Hub": 'Refúgio dos Catadores', 'The Rail-Yards': 'O Pátio Ferroviário', 'Dried Lake Sub-Station': 'Subestação do Lago Seco', 'Vanguard Barracks': 'Quartel Vanguarda',
+    'Ghost Town': 'Cidade Fantasma', 'Crimson Woods': 'Bosque Carmesim', 'Quarry Basin': 'Bacia da Pedreira', 'Ship Graveyard': 'Cemitério de Navios', 'The Antenna Grid': 'A Malha de Antenas',
+    'Antenna Grid': 'Malha de Antenas', 'Abandoned City': 'Cidade Abandonada', 'Anomalous Epicenter': 'Epicentro Anômalo', 'The Siege Ward': 'O Distrito Sitiado', 'Siege Ward': 'Distrito Sitiado',
+    'The Reactor Core': 'O Núcleo do Reator', 'Reactor Core': 'Núcleo do Reator', 'Secret Cave Area': 'Caverna Secreta', 'Secret Lab Alpha': 'Laboratório Secreto Alfa', 'Sub-Station Depths': 'Profundezas da Subestação',
+    'Maintenance Tunnels': 'Túneis de Manutenção', 'Secret Lab Beta': 'Laboratório Secreto Beta', 'Deep Caverns': 'Cavernas Profundas', 'Underground Labyrinth': 'Labirinto Subterrâneo',
+    'Secret Lab Gamma': 'Laboratório Secreto Gama', 'Underground Bunker': 'Bunker Subterrâneo', 'Siege Catacombs': 'Catacumbas do Cerco', 'Dried Lake': 'Lago Seco', 'Epicenter': 'Epicentro', 'the Hub': 'o Refúgio',
+    // ---- landmarks ----
+    'Checkpoint Gate': 'Portão do Posto de Controle', 'Watchtower 3': 'Torre de Vigia 3', 'Bonfire Camp': 'Acampamento da Fogueira', 'Rust Culvert': 'Bueiro Enferrujado', 'The Causeway': 'A Passarela',
+    'Sunken Tanker': 'Tanque Afundado', 'Reed Blind': 'Esconderijo dos Juncos', 'The Cutting': 'A Trincheira Férrea', 'Blind Curve': 'Curva Cega', 'Overwatch Ridge': 'Crista de Vigia', 'Crusher Row': 'Fileira das Prensas',
+    "Scrap King's Nest": 'Ninho do Rei da Sucata', 'The Maze': 'O Labirinto de Sucata', 'Silo Row': 'Fileira dos Silos', 'Central Plant': 'Usina Central', 'Loading Dock': 'Doca de Carga', 'The Wreck Line': 'A Linha de Destroços',
+    "Sniper's Lip": 'Borda do Atirador', 'Chokepoint Bridge': 'Ponte do Gargalo', 'Signal Tower': 'Torre de Sinalização', 'Container Stacks': 'Pilhas de Contêineres', 'Roundhouse': 'Rotunda', 'Rail Culvert': 'Bueiro dos Trilhos',
+    'The Flats': 'As Planícies', 'Sub-Station House': 'Casa da Subestação', 'Tower Line': 'Linha de Torres', 'Drainage Sump': 'Poço de Drenagem', 'Parade Ground': 'Pátio de Desfiles', 'Barracks Row': 'Fileira dos Alojamentos',
+    'Motor Pool': 'Garagem Militar', 'Command Post': 'Posto de Comando', 'Main Street': 'Rua Principal', 'The Church': 'A Igreja', 'Row Houses': 'Casas Geminadas', 'Town Hall Basement': 'Porão da Prefeitura',
+    'The Red Canopy': 'A Copa Vermelha', 'Obelisk Shrine': 'Santuário do Obelisco', 'Deadfall Clearing': 'Clareira dos Troncos', 'Sinkhole Grove': 'Bosque do Sumidouro', 'The Terraces': 'Os Terraços', 'Crane Rig': 'O Guindaste',
+    'Pit Floor': 'Fundo da Cava', 'Blast Shack': 'Barracão de Explosivos', 'The Hulks': 'Os Cascos', 'Rust Flat': 'Planície da Ferrugem', "Captain's Row": 'Fileira do Capitão', 'The Array': 'O Conjunto de Antenas',
+    'Relay Station': 'Estação Repetidora', 'Dead Broadcast Van': 'Van de Transmissão Morta', 'Highrise Row': 'Fileira de Arranha-céus', 'Central Plaza': 'Praça Central', 'Subway Entrance': 'Entrada do Metrô',
+    'Garrison Barricade': 'Barricada da Guarnição', 'Scattered Relics': 'Relíquias Espalhadas', 'The Crater Rim': 'A Borda da Cratera', 'The Wound': 'A Ferida', 'The Trenches': 'As Trincheiras', 'Bell Tower': 'Campanário',
+    'Field Hospital Ruins': 'Ruínas do Hospital de Campanha', 'Catacomb Stair': 'Escadaria das Catacumbas', 'Containment Hall': 'Salão de Contenção', 'Cooling Tunnels': 'Túneis de Resfriamento',
+    'Cave Mouth': 'Boca da Caverna', 'Stash Nook': 'Recanto do Esconderijo', 'Reception Airlock': 'Câmara de Recepção', 'Sample Storage': 'Depósito de Amostras', 'Flooded Corridor': 'Corredor Alagado',
+    'Transformer Vault': 'Cofre dos Transformadores', 'Tunnel Junction': 'Junção de Túneis', 'Collapsed Section': 'Seção Desabada', 'Archive Room': 'Sala de Arquivos', 'Isolation Ward': 'Ala de Isolamento',
+    'Root Hall': 'Salão das Raízes', 'Crystal Pool': 'Poço de Cristal', 'The Fork': 'A Bifurcação', 'Cave-In Chamber': 'Câmara Desabada', 'Signal Room': 'Sala de Sinais', 'Sealed Vault': 'Cofre Selado',
+    'Blast Door Foyer': 'Saguão da Porta Blindada', 'Ration Stores': 'Depósito de Rações', 'Ossuary': 'Ossuário', 'Sealed Crypt': 'Cripta Selada', 'The Last Gate': 'O Último Portão', 'Last Gate': 'Último Portão',
+    // ---- zone descriptions ----
+    'Razor-wire checkpoint line between concrete watchtowers, half-swallowed by overgrown fields.': 'Linha de postos com arame farpado entre torres de vigia de concreto, meio engolida pelo mato.',
+    'Chemical-sheened wetlands. Off the causeway every step is a wade.': 'Charcos com brilho químico. Fora da passarela, cada passo é dentro d\'água.',
+    'A collapsed rail cutting turned smuggling corridor, walled in by crumbling embankments.': 'Um corte ferroviário desabado virou corredor de contrabando, cercado por barrancos em ruína.',
+    'Mountains of crushed vehicles stacked into makeshift canyons.': 'Montanhas de veículos esmagados empilhados em cânions improvisados.',
+    'Disused processing plants and silos. Machinery groans in the wind.': 'Usinas e silos abandonados. As máquinas gemem com o vento.',
+    'A steep ravine strewn with a burned-out Raider convoy.': 'Uma ravina íngreme coberta pelos restos de um comboio queimado de Saqueadores.',
+    "The Zone's real capital: a fortified container market run by Sentinels and traders.": 'A verdadeira capital da Zona: um mercado fortificado de contêineres, gerido por Sentinelas e comerciantes.',
+    'A sprawling freight yard of rusted rolling stock, still used by Contractor logistics.': 'Um enorme pátio de cargas com vagões enferrujados, ainda usado pela logística dos Contratados.',
+    'A cracked lakebed under a derelict power sub-station.': 'Um leito de lago rachado sob uma subestação elétrica abandonada.',
+    'A fortified garrison contested between Liberator and Sentinel patrols.': 'Uma guarnição fortificada disputada por patrulhas de Libertadores e Sentinelas.',
+    'An evacuated town frozen mid-exodus. Doors still hang open.': 'Uma cidade evacuada, congelada no meio do êxodo. As portas ainda estão abertas.',
+    'A forest stained rust-red. Short sightlines, heavy mutant activity.': 'Uma floresta manchada de vermelho-ferrugem. Pouca visibilidade, muita atividade mutante.',
+    'A terraced open-pit quarry descending into a flooded, anomaly-tainted floor.': 'Uma pedreira a céu aberto em terraços que desce até um fundo alagado e contaminado por anomalias.',
+    'Beached cargo ships loom like dead whales on dry land.': 'Navios cargueiros encalhados se erguem como baleias mortas em terra firme.',
+    'Towering antennas hum with anomalous current. Obelisk holy ground.': 'Antenas gigantes zumbem com corrente anômala. Solo sagrado do Obelisco.',
+    'Collapsed high-rises and checkpoints. Obelisk and Garrison fight over the ruins.': 'Prédios desabados e postos de controle. Obelisco e Guarnição disputam as ruínas.',
+    'Overlapping anomalies around a crater of shifting geometry. No safe path, only a safer one.': 'Anomalias sobrepostas ao redor de uma cratera de geometria mutável. Não há caminho seguro, só um menos perigoso.',
+    'A walled district under permanent siege. Trench lines cut through former streets.': 'Um distrito murado sob cerco permanente. Trincheiras cortam as antigas ruas.',
+    "The Zone's dead heart. Every arrival here means a fight.": 'O coração morto da Zona. Toda chegada aqui significa luta.',
+    'A damp, low cave behind the Rust Culvert.': 'Uma caverna úmida e baixa atrás do Bueiro Enferrujado.', 'A sealed pre-Zone research annex.': 'Um anexo de pesquisa lacrado, de antes da Zona.',
+    'Flooded sub-basements, cabling submerged in stagnant water.': 'Subsolos alagados, cabos submersos em água parada.', 'Narrow service tunnels beneath the yard.': 'Túneis de serviço estreitos sob o pátio.',
+    'A larger, better-preserved research site under the town.': 'Um centro de pesquisa maior e mais preservado sob a cidade.', 'Caverns choked with hanging roots, unnaturally warm.': 'Cavernas tomadas por raízes pendentes, anormalmente quentes.',
+    'A disorienting maintenance maze under the quarry.': 'Um labirinto de manutenção desorientador sob a pedreira.', 'A hidden Obelisk research site. Dead equipment still hums.': 'Um centro de pesquisa oculto do Obelisco. Equipamentos mortos ainda zumbem.',
+    'A Cold-War civil defense bunker beneath the city.': 'Um bunker de defesa civil da Guerra Fria sob a cidade.', 'Stone burial vaults older than the siege above.': 'Câmaras funerárias de pedra, mais antigas que o cerco lá em cima.',
+    // ---- outposts ----
+    'Old Man Yefim': 'Velho Yefim', 'The Runner': 'O Corredor', 'The Scrap King': 'O Rei da Sucata', 'Foreman Voss': 'Capataz Voss', 'Dr. Priya Osei': 'Dra. Priya Osei', 'Dr. Osei': 'Dra. Osei',
+    'Sergeant Kade': 'Sargento Kade', 'Quartermaster Iryna': 'Intendente Iryna', 'Elder Bosch': 'Ancião Bosch', 'Brother Anatoly': 'Irmão Anatoly', 'Corporal Danika Rusa': 'Cabo Danika Rusa',
+    'The Old Bank (Contractors)': 'O Banco Antigo (Contratados)', 'The Old Bank': 'O Banco Antigo',
+    "Bonfire Camp (Yefim's Footlocker)": 'Acampamento da Fogueira (Baú do Yefim)', 'The Cutting (tarped handcart)': 'A Trincheira Férrea (carrinho coberto com lona)',
+    'Sub-Station House (Ecologist field cache)': 'Casa da Subestação (depósito de campo dos Ecologistas)', 'Main Street (re-secured stall)': 'Rua Principal (barraca reforçada)',
+    'The Terraces (equipment shed)': 'Os Terraços (galpão de equipamentos)', "Captain's Row (cargo-hold stash)": 'Fileira do Capitão (depósito no porão de carga)', 'Garrison Barricade (storeroom)': 'Barricada da Guarnição (depósito)',
+    // ---- loadouts ----
+    'Scavenger': 'Catador', 'Ex-Military': 'Ex-Militar', 'Freelance Trader': 'Comerciante Autônomo',
+    'Hunting Knife, PMm + 30 rds 9x18mm, Leather Jacket, 2 Basic Medkit, 1 Bandage, 200 Ru.': 'Hunting Knife, PMm + 30 balas 9x18mm, Leather Jacket, 2 Kits Médicos Básicos, 1 Bandagem, 200 Ru.',
+    'AKS-74U + 60 rds 5.45x39mm, Spetsnaz Switchblade, Raider Jacket, 1 Basic Medkit, 1 Basic Stimpak, 100 Ru.': 'AKS-74U + 60 balas 5.45x39mm, Spetsnaz Switchblade, Raider Jacket, 1 Kit Médico Básico, 1 Estimulante Básico, 100 Ru.',
+    'PMm + 30 rds, Scrap-Plated Vest, Small Canvas Sack, 1 Basic Medkit, 500 Ru.': 'PMm + 30 balas, Scrap-Plated Vest, Saco de Lona Pequeno, 1 Kit Médico Básico, 500 Ru.',
+    // ---- perks ----
+    "Marksman's Focus": 'Foco do Atirador', 'High-Velocity Impact': 'Impacto de Alta Velocidade', 'Overwatch': 'Vigilância', 'Recoil Control': 'Controle de Recuo', 'Controlled Taps': 'Disparos Controlados',
+    'Suppressive Fire': 'Fogo de Supressão', 'Bullet Hose': 'Mangueira de Balas', 'Run and Gun': 'Correr e Atirar', 'Hit and Run': 'Bater e Correr', 'Entrenched': 'Entrincheirado', 'Shredder': 'Triturador',
+    'Walking Tank': 'Tanque Ambulante', 'Breacher': 'Arrombador', 'Buckshot Spread': 'Dispersão de Chumbo', 'Staggering Blast': 'Disparo Atordoante', 'Gunslinger': 'Pistoleiro', 'Double Tap': 'Disparo Duplo',
+    'Point-Blank Execution': 'Execução à Queima-Roupa', 'Blade Dancer': 'Dançarino da Lâmina', 'Desperate Parry': 'Aparo Desesperado', 'Combat Medic': 'Médico de Combate', 'Quick Hands': 'Mãos Rápidas',
+    'Gunsmith': 'Armeiro', 'Sprinter': 'Velocista', 'Tactical Reposition': 'Reposicionamento Tático', 'Adrenaline Surge': 'Surto de Adrenalina', 'Vault': 'Saltar Obstáculos', 'Pack Mule': 'Mula de Carga',
+    'Iron Stomach': 'Estômago de Ferro', 'Anomaly Whisperer': 'Sussurrador de Anomalias', 'Iron Will': 'Vontade de Ferro', 'Artifact Handler': 'Manipulador de Artefatos', 'Haggler': 'Pechincheiro',
+    '+2 to attack rolls with a Sniper Rifle.': '+2 nas jogadas de ataque com Fuzil de Precisão.',
+    "Sniper Rifle at 12+ tiles: ignore an extra 20% of Phys-DR (stacks with the weapon's own).": 'Fuzil de Precisão a 12+ quadrados: ignora mais 20% de RD-Fís (acumula com o da arma).',
+    'Reaction: hold 2 AP; when an enemy enters your sight before your next turn, take one Sniper Rifle shot.': 'Reação: reserve 2 PA; quando um inimigo entrar no seu campo de visão antes do seu próximo turno, dê um tiro de Fuzil de Precisão.',
+    'No burst penalty with assault rifles.': 'Sem penalidade de rajada com fuzis de assalto.', 'Regain 1 AP the first time each turn your kept d20 is 15+.': 'Recupere 1 PA na primeira vez em cada turno que seu d20 mantido der 15+.',
+    '3 AP: every enemy within 4 tiles of a point is Suppressed, and must pass Agility DC 13 or lose 2 AP.': '3 PA: todo inimigo a até 4 quadrados de um ponto fica Suprimido e precisa passar em Agilidade CD 13 ou perde 2 PA.',
+    'SMG bursts have no penalty against targets within 4 tiles.': 'Rajadas de submetralhadora não têm penalidade contra alvos a até 4 quadrados.', 'Once per turn, 1 AP: +2 MP to move and shoot.': 'Uma vez por turno, 1 PA: +2 PM para mover e atirar.',
+    'After an SMG attack, gain 2 free MP this turn.': 'Após um ataque de submetralhadora, ganhe 2 PM grátis neste turno.', '+20% Phys-DR against incoming attacks if you used 0 MP this turn.': '+20% de RD-Fís contra ataques se você usou 0 PM neste turno.',
+    'Heavy-weapon bursts roll with advantage but use double ammo.': 'Rajadas de arma pesada rolam com vantagem, mas gastam o dobro de munição.', 'Ignore the "MP capped at 2" heavy-weapon restriction.': 'Ignora a restrição de arma pesada "PM limitado a 2".',
+    '+4 raw shotgun damage within 4 tiles.': '+4 de dano bruto de escopeta a até 4 quadrados.', 'A shotgun roll can also hit one enemy adjacent to the target.': 'Uma rolagem de escopeta também pode acertar um inimigo adjacente ao alvo.',
+    'A shotgun hit within 4 tiles drains 2 MP from the target next turn.': 'Um acerto de escopeta a até 4 quadrados drena 2 PM do alvo no próximo turno.',
+    'Two sidearms: one attack fires both (2 AP, −1 each). Reload both for normal reload AP +1.': 'Duas pistolas: um ataque dispara as duas (2 PA, −1 cada). Recarregar as duas custa o PA normal +1.',
+    'Fire a sidearm twice in one action for 3 AP. Not with a Gunslinger dual-shot.': 'Dispare uma pistola duas vezes em uma ação por 3 PA. Não vale com o disparo duplo do Pistoleiro.',
+    'Sidearm attacks ignore cover AC.': 'Ataques de pistola ignoram a CA da cobertura.', 'First melee attack each turn costs 2 AP, the next two 1 AP each (max 3).': 'O primeiro ataque corpo a corpo de cada turno custa 2 PA, os dois seguintes 1 PA cada (máx. 3).',
+    'Reaction: hold 1 AP; when a melee attack would hit you, Agility DC 14 negates it.': 'Reação: reserve 1 PA; quando um ataque corpo a corpo for acertá-lo, Agilidade CD 14 o anula.',
+    '+10 HP from medkits, stimpaks and other healing consumables.': '+10 PV de kits médicos, estimulantes e outros consumíveis de cura.', 'All reloads cost 0 AP.': 'Todas as recargas custam 0 PA.',
+    'Clearing a jam costs 0 AP.': 'Destravar a arma custa 0 PA.', '+2 MP per turn.': '+2 PM por turno.', '+1 MP each turn only for reaching cover; ending your turn in cover gives +1 AC.': '+1 PM por turno só para chegar à cobertura; terminar o turno em cobertura dá +1 CA.',
+    'Reaction: the first time you drop below 30 HP in a fight, gain 2 AP and 20 temporary HP.': 'Reação: na primeira vez em que você cair abaixo de 30 PV numa luta, ganhe 2 PA e 20 PV temporários.',
+    'Moving across cover tiles costs 0 MP.': 'Atravessar quadrados de cobertura custa 0 PM.', 'Base carry capacity 50kg.': 'Capacidade de carga base de 50kg.', 'Food restores double Hunger/Thirst (MRE +4/+4).': 'Comida restaura o dobro de Fome/Sede (Ração +4/+4).',
+    '+2 to anomaly avoidance checks.': '+2 em testes para evitar anomalias.', 'Roll item counts for crates and NPC extra loot twice, keep the higher.': 'Role duas vezes a quantidade de itens de caixotes e de saque extra de NPCs, fique com a maior.',
+    'Temporary HP lasts 8 turns instead of 4.': 'PV temporários duram 8 turnos em vez de 4.', 'Artifact Anom-DR penalties are halved.': 'As penalidades de RD-Anôm dos artefatos caem pela metade.',
+    'Pay 15% less when buying, get 15% more when selling.': 'Pague 15% menos ao comprar e receba 15% mais ao vender.',
+    // ---- milestones ----
+    'Reached a Tier 2 zone': 'Chegou a uma zona de Nível 2', 'Reached a Tier 3 zone': 'Chegou a uma zona de Nível 3', 'Reached a Tier 4 zone': 'Chegou a uma zona de Nível 4', 'Reached a Tier 5 zone': 'Chegou a uma zona de Nível 5',
+    'Completed 1 quest': 'Completou 1 missão', 'Completed 3 quests': 'Completou 3 missões', 'Killed a Tier 2 mutant or a Professional+ NPC': 'Matou um mutante de Nível 2 ou um NPC Profissional+',
+    'Cleared a hidden sub-node or finished an NPC storyline arc': 'Limpou um subnível oculto ou terminou a história de um NPC', 'Killed a Tier 4 mutant': 'Matou um mutante de Nível 4',
+    'Finished an NPC storyline arc': 'Terminou a história de um NPC', 'Main Story Act 3 done': 'Ato 3 da História Principal concluído', 'Uncover what really happened in the Zone': 'Descobrir o que realmente aconteceu na Zona',
+    'Killed a Tier 5 mutant or a Legend NPC': 'Matou um mutante de Nível 5 ou um NPC Lenda', 'Main Story finale done': 'Final da História Principal concluído',
+    // ---- journal ----
+    'Act': 'Ato', 'Origin': 'Origem', 'Guardians': 'Guardiões', 'The Signal': 'O Sinal', 'Allegiance': 'Lealdade', 'The Source:': 'A Fonte:', 'Resolved:': 'Resolvida:', 'sponsor:': 'patrocinador:',
+    'Secret Lab Alpha lies under the Industrial Basin loading dock.': 'O Laboratório Secreto Alfa fica sob a doca de carga da Bacia Industrial.',
+    'Its Sample Storage terminal is sealed; your Alpha Access Keycard should open it.': 'O terminal do Depósito de Amostras está lacrado; seu Cartão de Acesso Alfa deve abri-lo.',
+    'Its terminal is sealed. You need a way in.': 'O terminal está lacrado. Você precisa de um jeito de entrar.',
+    'There is talk of a sealed lab under the Industrial Basin loading dock, from before the Zone. Search the area.': 'Falam de um laboratório lacrado sob a doca de carga da Bacia Industrial, de antes da Zona. Vasculhe a área.',
+    'The research drive is encrypted.': 'O drive de pesquisa está criptografado.',
+    'Dr. Osei at the Dried Lake could decode it, or a sharp mind at a lab terminal (Intelligence DC 18).': 'A Dra. Osei, no Lago Seco, poderia decodificá-lo, ou uma mente afiada em um terminal de laboratório (Inteligência CD 18).',
+    'Someone will have to crack it. A lab terminal might do (Intelligence DC 18).': 'Alguém vai ter que quebrá-lo. Um terminal de laboratório pode servir (Inteligência CD 18).',
+    'Secret Lab Beta lies beneath the Ghost Town town hall. Search its archive.': 'O Laboratório Secreto Beta fica sob a prefeitura da Cidade Fantasma. Vasculhe o arquivo.',
+    'The Origin Log points to a second site under the Ghost Town town hall.': 'O Registro de Origem aponta para um segundo local, sob a prefeitura da Cidade Fantasma.',
+    'Secret Lab Gamma is open to you. Get into its Sealed Vault.': 'O Laboratório Secreto Gama está aberto para você. Entre no Cofre Selado.',
+    'The decoded drive names the Antenna Grid as the relay. Something is buried beneath it.': 'O drive decodificado aponta a Malha de Antenas como repetidora. Há algo enterrado embaixo dela.',
+    'Obelisk keep digging around a dead broadcast van at its edge.': 'O Obelisco não para de cavar em volta de uma van de transmissão morta na borda.',
+    'Fragment Gamma points to the Reactor Core, past the Siege Ward. Whoever walks you through the Siege Ward decides what happens at the end. Choose a sponsor in Abandoned City or the Siege Ward, or go alone.': 'O Fragmento Gama aponta para o Núcleo do Reator, depois do Distrito Sitiado. Quem guiar você pelo Distrito Sitiado decide o que acontece no fim. Escolha um patrocinador na Cidade Abandonada ou no Distrito Sitiado, ou vá sozinho.',
+    'Fight through the Containment Hall of the Reactor Core and open the Last Gate': 'Abra caminho pelo Salão de Contenção do Núcleo do Reator e abra o Último Portão',
+    'Act 1: Origin': 'Ato 1: Origem', 'Act 2: Guardians': 'Ato 2: Guardiões', 'Act 3: The Signal': 'Ato 3: O Sinal', 'Act 4: Allegiance': 'Ato 4: Lealdade', 'Act 5: The Last Gate': 'Ato 5: O Último Portão',
+    // ---- endings ----
+    'Contain it': 'Contê-la', 'Sell it': 'Vendê-la', 'Destroy it': 'Destruí-la', 'Wake it': 'Despertá-la', 'Take it': 'Tomá-la',
+    'The Source is studied and sealed under watch.': 'A Fonte é estudada e lacrada sob vigilância.', 'The Source is shipped out to the highest bidder.': 'A Fonte é despachada para quem pagar mais.',
+    'The Source is detonated. The Zone starts to shrink.': 'A Fonte é detonada. A Zona começa a encolher.', "You become the Source's voice.": 'Você se torna a voz da Fonte.', 'You carry part of the Source out yourself.': 'Você mesmo leva parte da Fonte embora.',
+    // ---- quest types, complications ----
+    'Elimination': 'Eliminação', 'Kill Quota': 'Cota de Abates', 'Retrieve': 'Recuperação', 'Escort/Protect': 'Escolta/Proteção', 'Investigate': 'Investigação',
+    'None — a clean job': 'Nenhuma — um trabalho limpo', 'Rival: someone else is after it': 'Rival: outra pessoa está atrás disso', 'Not as described': 'Não é o que foi descrito',
+    'Double-cross risk at turn-in': 'Risco de traição na entrega', 'Clock: 2 days or the reward is halved': 'Prazo: 2 dias ou a recompensa cai pela metade', 'Better offer: someone will bid for it': 'Oferta melhor: alguém vai fazer um lance',
+    // ---- faction goals ----
+    'seize The Terraces in Quarry Basin': 'tomar Os Terraços na Bacia da Pedreira', 'fortify Ghost Town': 'fortificar a Cidade Fantasma', 'hold the Chokepoint Bridge in Black Valley': 'controlar a Ponte do Gargalo no Vale Negro',
+    'hold Vanguard Barracks': 'controlar o Quartel Vanguarda', 'break the Siege Ward': 'romper o Distrito Sitiado', 'map the Anomalous Epicenter': 'mapear o Epicentro Anômalo',
+    // ---- quests ----
+    'The Breached Fence': 'A Cerca Rompida', "Yefim noticed movement at the fence line and wants to know what's coming.": 'Yefim notou movimento na cerca e quer saber o que vem por aí.',
+    'Investigate the breached fence near Watchtower 3': 'Investigue a cerca rompida perto da Torre de Vigia 3', 'Determine who or what caused it': 'Descubra quem ou o que a rompeu',
+    'The Sealed Drum': 'O Tambor Lacrado', "A buyer wants the drum's contents analyzed, no questions asked.": 'Um comprador quer o conteúdo do tambor analisado, sem perguntas.',
+    'Recover the sealed chemical drum from the Sunken Tanker': 'Recupere o tambor químico lacrado do Tanque Afundado', 'Return it unopened': 'Devolva-o fechado',
+    'The Reed Blind': 'O Esconderijo dos Juncos', 'Caravans keep getting hit at the same spot.': 'Caravanas continuam sendo atacadas no mesmo lugar.', 'Eliminate the Raider ambushing travelers from the Reed Blind': 'Elimine o Saqueador que embosca viajantes do Esconderijo dos Juncos',
+    'Swarm at Blind Curve': 'Enxame na Curva Cega', "The Runner's couriers keep getting swarmed.": 'Os mensageiros do Corredor continuam sendo atacados por enxames.', 'Clear 3 Rot Swarm mutants nesting near Blind Curve': 'Elimine 3 mutantes Enxame Pútrido aninhados perto da Curva Cega',
+    'The Greenhorn': 'O Novato', 'Low-stakes mentorship job.': 'Trabalho de mentoria de baixo risco.', 'Escort a greenhorn Stalker safely through': 'Escolte um Stalker novato com segurança por',
+    'Silo Row Den': 'O Covil da Fileira dos Silos', 'Wanderers want the silos safe to scavenge.': 'Os Andarilhos querem os silos seguros para vasculhar.', 'Clear the Flesh Stalker pack denning in Silo Row': 'Elimine a matilha de Espreitadores de Carne na Fileira dos Silos',
+    'The Stolen Ledger': 'O Livro-Caixa Roubado', "A rival camp lifted the King's trade ledger.": 'Um acampamento rival roubou o livro-caixa do Rei.', 'Recover the stolen trade ledger from the rival camp in The Maze': 'Recupere o livro-caixa roubado do acampamento rival no Labirinto de Sucata',
+    'Return it': 'Devolva-o', 'Convoy at the Bridge': 'Comboio na Ponte', 'Liberators need the route open.': 'Os Libertadores precisam da rota aberta.', 'Protect a supply convoy crossing the Chokepoint Bridge': 'Proteja um comboio de suprimentos atravessando a Ponte do Gargalo',
+    'Bounty Board: Tier 2': 'Mural de Recompensas: Nível 2', 'Generic bounty-board work.': 'Trabalho comum do mural de recompensas.', 'Eliminate the named bounty target': 'Elimine o alvo procurado',
+    'Survey Gear': 'Equipamento de Levantamento', 'Ecologists want working gear, not scrap.': 'Os Ecologistas querem equipamento funcionando, não sucata.', 'Recover intact equipment from the Tower Line before mutants strip it': 'Recupere equipamento intacto da Linha de Torres antes que os mutantes o destruam',
+    'Bring it back': 'Traga-o de volta', 'Shimmers on the Flats': 'Tremulações nas Planícies', 'Cloaked predators are picking off travelers.': 'Predadores camuflados estão abatendo viajantes.',
+    'Eliminate 2 Veil Stalkers preying on travelers crossing The Flats': 'Elimine 2 Espreitadores Velados que caçam viajantes nas Planícies', 'Something Below the Yard': 'Algo Embaixo do Pátio',
+    'Movement under the tracks at night.': 'Movimento sob os trilhos à noite.', 'Investigate the movement below the yard': 'Investigue o movimento embaixo do pátio', 'Patrol Escort': 'Escolta de Patrulha',
+    'A Sentinel patrol needs another gun through hostile ground.': 'Uma patrulha de Sentinelas precisa de mais uma arma em território hostil.', 'Escort a Sentinel patrol through hostile territory': 'Escolte uma patrulha de Sentinelas por território hostil',
+    'The Alpha at the Sub-Station': 'O Alfa na Subestação', 'An Alpha Stalker has claimed the Sub-Station House.': 'Um Espreitador Alfa tomou a Casa da Subestação.', 'Eliminate the Alpha Stalker near the Sub-Station House': 'Elimine o Espreitador Alfa perto da Casa da Subestação',
+    'Radio Chatter': 'Conversa no Rádio', 'Contractors are spooked by an unidentified broadcast.': 'Os Contratados estão assustados com uma transmissão não identificada.',
+    'Investigate the strange radio chatter from the Signal Tower': 'Investigue a estranha conversa de rádio vinda da Torre de Sinalização', 'Trace the broadcast to its source': 'Rastreie a transmissão até a origem',
+    'Motor Pool Ammo': 'Munição da Garagem Militar', 'The barracks needs its ammo before Raiders get it.': 'O quartel precisa da sua munição antes que os Saqueadores a peguem.',
+    'Recover ammo crates from the Motor Pool before Raiders scavenge them': 'Recupere as caixas de munição da Garagem Militar antes que os Saqueadores as peguem', 'Deliver the crates': 'Entregue as caixas',
+    'The Row House Den': 'O Covil das Casas Geminadas', 'Squatters want the block livable again.': 'Os ocupantes querem o quarteirão habitável de novo.', 'Clear 2 Alpha Stalkers or Mind Weavers denning in the Row Houses': 'Elimine 2 Espreitadores Alfa ou Tecelões Mentais nas Casas Geminadas',
+    'The Shrine': 'O Santuário', 'Espionage work — careful, quiet play rewarded.': 'Trabalho de espionagem — cautela e silêncio são recompensados.', 'Investigate the Obelisk Shrine without provoking a fight (stealth)': 'Investigue o Santuário do Obelisco sem provocar uma luta (furtividade)',
+    'Learn what Obelisk is doing at Deadfall Clearing': 'Descubra o que o Obelisco está fazendo na Clareira dos Troncos', 'A solid payoff for actively searching a zone.': 'Uma boa recompensa por vasculhar uma zona a fundo.',
+    'Recover intact samples from the Isolation Ward': 'Recupere amostras intactas da Ala de Isolamento', 'Bring them back': 'Traga-as de volta', 'Bounty Board: Officer': 'Mural de Recompensas: Oficial',
+    'Zone-agnostic escalation bounty.': 'Recompensa de escalada, em qualquer zona.', 'Eliminate the high-value enemy officer': 'Elimine o oficial inimigo de alto valor', 'The Pit Floor': 'O Fundo da Cava',
+    'Contractors are worried about their equipment.': 'Os Contratados estão preocupados com o equipamento.', 'Investigate the anomalous activity at the Pit Floor': 'Investigue a atividade anômala no Fundo da Cava',
+    'Read the anomaly field (detector bonus applies)': 'Leia o campo de anomalias (o bônus do detector se aplica)', 'Salvage the Hulk': 'Resgate no Casco', 'Salvage job with a real fight attached.': 'Trabalho de resgate com uma luta de verdade junto.',
+    'Clear a Hulk of nesting mutants': 'Limpe um Casco de mutantes aninhados', 'Recover the cargo from its hold': 'Recupere a carga do porão', 'Bring the cargo back': 'Traga a carga de volta', 'Trouble at the Array': 'Problemas no Conjunto de Antenas',
+    'Something is wrecking the Array equipment.': 'Algo está destruindo o equipamento do Conjunto.', "Eliminate the mutant disrupting the Array's equipment": 'Elimine o mutante que está danificando o equipamento do Conjunto',
+    'Convoy Raiders': 'Assaltantes de Comboio', 'Zone-agnostic filler at the high end.': 'Trabalho avulso de alto nível, em qualquer zona.', 'raiding supply convoys': 'que atacam comboios de suprimentos',
+    'The Highrise Nest': 'O Ninho nos Arranha-céus', 'The Garrison push is coming regardless.': 'O avanço da Guarnição vem de qualquer jeito.', 'Clear Highrise Row of a mutant nest (2 Tier 4 mutants)': 'Limpe a Fileira de Arranha-céus de um ninho de mutantes (2 mutantes de Nível 4)',
+    'Extremely dangerous dead-end zone.': 'Zona sem saída extremamente perigosa.', 'Reach the Crater Rim': 'Chegue à Borda da Cratera', 'Retrieve data from the Scattered Relics without lingering at The Wound': 'Recupere dados das Relíquias Espalhadas sem se demorar na Ferida',
+    'Medics Under Fire': 'Médicos sob Fogo', 'Trench-warfare set piece.': 'Cena de guerra de trincheiras.', 'Protect a Garrison medic team resupplying the Field Hospital Ruins': 'Proteja uma equipe médica da Guarnição reabastecendo as Ruínas do Hospital de Campanha',
+    'The Bell Tower Sniper': 'O Atirador do Campanário', 'Apex human-NPC bossfight.': 'A luta de chefe humano mais difícil.', 'Eliminate the Obelisk sniper controlling the Bell Tower': 'Elimine o atirador do Obelisco que controla o Campanário',
+    'Legend Bounty:': 'Recompensa Lendária:', 'has a grudge against the whole Zone.': 'guarda rancor contra a Zona inteira.', 'carrying a': 'carregando uma', 'Kill': 'Mate', 'Find the hidden way into': 'Encontre a entrada oculta para',
+    // arcs
+    'Fence Mending': 'Consertando a Cerca', 'Clear debris blocking the Checkpoint Gate': 'Limpe os destroços que bloqueiam o Portão do Posto de Controle', 'Old Debts': 'Dívidas Antigas',
+    'Recover a personal keepsake near Watchtower 3, guarded by a small Raider group': 'Recupere uma lembrança pessoal perto da Torre de Vigia 3, guardada por um pequeno grupo de Saqueadores',
+    'Settling the Score': 'Acertando as Contas', 'Track down Bogdan, the Raider warlord, and confront him (kill him or force his surrender)': 'Encontre Bogdan, o chefe Saqueador, e o confronte (mate-o ou force sua rendição)',
+    'Yefim gives you a permanent 10% discount.': 'Yefim lhe dá um desconto permanente de 10%.', 'Sealed Cargo': 'Carga Lacrada', 'Carry the sealed package to the contact in Industrial Basin without opening it': 'Leve o pacote lacrado ao contato na Bacia Industrial sem abri-lo',
+    'Bad Delivery': 'Entrega Ruim', 'Survive the ambush at Blind Curve': 'Sobreviva à emboscada na Curva Cega', 'Learn who set it up': 'Descubra quem armou isso', 'Cutting Ties': 'Cortando os Laços',
+    "Break The Runner free of his patron's enforcers": 'Liberte o Corredor dos capangas do patrão', 'The Runner is free: better stock (Tier 1-2, more items).': 'O Corredor está livre: estoque melhor (Nível 1-2, mais itens).',
+    'Clear the Raider Dock': 'Limpe a Doca dos Saqueadores', 'Clear the Industrial Basin loading dock of a rival raider presence': 'Limpe a doca de carga da Bacia Industrial de saqueadores rivais', 'Turf War': 'Guerra de Território',
+    'Investigate the rival crew moving into Crusher Row': 'Investigue o bando rival que está tomando a Fileira das Prensas', 'Identify their backer': 'Identifique quem os financia', 'King of the Hill': 'Rei do Morro',
+    'Defeat Rooke and his enforcers at The Maze': 'Derrote Rooke e seus capangas no Labirinto de Sucata', "The Scrap King's hold on the yard is cemented (free technician upgrade).": 'O domínio do Rei da Sucata sobre o ferro-velho está garantido (melhoria grátis do técnico).',
+    'The Milk Run': 'A Corrida do Leite', 'Escort a supply train through the Container Stacks': 'Escolte um trem de suprimentos pelas Pilhas de Contêineres', 'Inside Job': 'Trabalho Interno',
+    'Investigate repeated sabotage on Contractor shipments': 'Investigue a sabotagem repetida nos carregamentos dos Contratados', 'Identify the leak': 'Identifique o traidor', 'Loose Ends': 'Pontas Soltas',
+    'Confront the named turncoat at the Signal Tower': 'Confronte o traidor na Torre de Sinalização', "Permanent first pick of Voss's stock (+2 items).": 'Primeira escolha permanente no estoque de Voss (+2 itens).',
+    'Recovery at the Dried Lake': 'Resgate no Lago Seco', "Eliminate the Alpha Stalker guarding the Sub-Station and recover the dead researcher's hardened drive": 'Elimine o Espreitador Alfa que guarda a Subestação e recupere o drive blindado do pesquisador morto',
+    'What the Drive Knows': 'O Que o Drive Sabe', 'Deliver the drive to Dr. Osei': 'Entregue o drive à Dra. Osei', 'Investigate the Sub-Station Depths': 'Investigue as Profundezas da Subestação', 'Containment Breach': 'Quebra de Contenção',
+    'Deal with whatever the Depths investigation stirred up': 'Lide com o que a investigação nas Profundezas despertou', 'Osei shares her cache (free technician upgrade).': 'Osei divide seu depósito (melhoria grátis do técnico).',
+    'Hold the Line': 'Segurar a Linha', 'Defend the Parade Ground during a Raider probe': 'Defenda o Pátio de Desfiles durante uma sondagem dos Saqueadores', 'The Informant': 'O Informante',
+    "Search Barracks Row for the defector's drop": 'Procure na Fileira dos Alojamentos o esconderijo do desertor', 'Identify the defector': 'Identifique o desertor', 'Who Holds the Barracks': 'Quem Controla o Quartel',
+    'Break the enemy push on the Command Post': 'Rompa o avanço inimigo sobre o Posto de Comando', 'You decide who holds Vanguard Barracks.': 'Você decide quem controla o Quartel Vanguarda.',
+    'Shutters Up': 'Portas Fechadas', 'Disarm the booby traps in the adjacent shopfront': 'Desarme as armadilhas na loja ao lado', 'Check the shopfront is clear': 'Confira se a loja está limpa', 'Protection Racket': 'Extorsão',
+    'Deal with the gang shaking Mara down': 'Lide com a gangue que extorque a Mara', "Main Street's Own": 'A Rua Principal é Nossa', 'Defend Main Street during a full raid': 'Defenda a Rua Principal durante um ataque completo',
+    'Mara becomes a Friendly-rate trader for good.': 'Mara passa a vender a preço de amigo para sempre.', 'Sunk Cost': 'Custo Afundado', 'Recover equipment lost to the Pit Floor anomalies': 'Recupere o equipamento perdido nas anomalias do Fundo da Cava',
+    'Something in the Water': 'Algo na Água', 'Investigate erratic worker behavior near the Crane Rig': 'Investigue o comportamento estranho dos trabalhadores perto do Guindaste', 'Find what is affecting the crew': 'Descubra o que está afetando a equipe',
+    'Signal in the Skull': 'Sinal no Crânio', "Eliminate whatever's psychically influencing the crew": 'Elimine o que está influenciando a equipe psiquicamente', 'Iryna gives you a permanent 10% discount.': 'Iryna lhe dá um desconto permanente de 10%.',
+    'Clear the Hulk': 'Limpe o Casco', 'Clear a beached freighter of nesting mutants': 'Limpe um cargueiro encalhado de mutantes aninhados', 'Heirloom': 'Herança', 'Recover a family heirloom from a dangerous hull': 'Recupere uma herança de família de um casco perigoso',
+    'Siege of the Row': 'Cerco à Fileira', "Defend Captain's Row from a raid": 'Defenda a Fileira do Capitão de um ataque', 'The Row is safe; Bosch gives you a permanent 10% discount.': 'A Fileira está segura; Bosch lhe dá um desconto permanente de 10%.',
+    'Proof of Faith': 'Prova de Fé', 'Prove your loyalty: kill 2 Ecologists at the Sub-Station House': 'Prove sua lealdade: mate 2 Ecologistas na Casa da Subestação', 'The Gamma Relic': 'A Relíquia Gama',
+    'Recover the "holy" relic from the Sealed Vault': 'Recupere a relíquia "sagrada" do Cofre Selado', 'What the Array Hears': 'O Que o Conjunto Ouve', 'Witness the Obelisk ritual at the Array': 'Testemunhe o ritual do Obelisco no Conjunto de Antenas',
+    'Learn what the Antenna Grid is really broadcasting': 'Descubra o que a Malha de Antenas realmente transmite', 'You know what the Array broadcasts. It does not let you sleep.': 'Você sabe o que o Conjunto transmite. Isso não deixa você dormir.',
+    'Hold the Barricade': 'Segurar a Barricada', "Defend the Barricade's storeroom during an Obelisk probe": 'Defenda o depósito da Barricada durante uma sondagem do Obelisco', 'Missing Shipment': 'Carregamento Desaparecido',
+    'Track down the convoy that never arrived from the Subway Entrance approach': 'Encontre o comboio que nunca chegou pela entrada do metrô', 'No More Officers': 'Chega de Oficiais',
+    "Deal with the officer selling the Barricade's positions to Obelisk": 'Lide com o oficial que vende as posições da Barricada para o Obelisco', 'Permanent Friendly-rate access and first pick of barricade stock.': 'Acesso permanente a preço de amigo e primeira escolha no estoque da barricada.',
+    // ---- log messages (fixed text) ----
+    'THE PERIMETER. Sagging razor wire, rusted watchtowers. The fire is dead. You need wood.': 'O PERÍMETRO. Arame farpado caído, torres de vigia enferrujadas. A fogueira está apagada. Você precisa de madeira.',
+    'The fence-line is picked clean. Give it time, or go deeper into the Zone.': 'A cerca já foi toda vasculhada. Dê um tempo, ou vá mais fundo na Zona.',
+    'Dry branches snapped from a dead birch (+2 Wood).': 'Galhos secos arrancados de uma bétula morta (+2 Madeira).', 'Splintered pallet wood from a collapsed checkpoint (+2 Wood).': 'Madeira de palete lascada de um posto desabado (+2 Madeira).',
+    'Pried scrap metal off a rusted APC (+1 Scrap).': 'Arrancou sucata de um blindado enferrujado (+1 Sucata).', 'Ru in the pocket of an abandoned uniform.': 'Ru no bolso de um uniforme abandonado.',
+    'An unopened MRE in a ditch. Lucky.': 'Uma ração fechada numa vala. Sorte.', 'A sealed field dressing in a burst first-aid box.': 'Um curativo lacrado numa caixa de primeiros socorros estourada.', 'Nothing but weeds and broken glass.': 'Nada além de mato e vidro quebrado.',
+    'A grizzled veteran in an old trenchcoat walks up to your fire and drags a shipping crate under the lean-to tarp. "Name is Old Man Yefim. That\'s my footlocker. Let\'s do business."': 'Um veterano grisalho num sobretudo velho chega à sua fogueira e arrasta um caixote para baixo da lona do abrigo. "Me chamam de Velho Yefim. Esse é meu baú. Vamos fazer negócio."',
+    'The fire is burning. Past the wire, the Zone waits. (Zone tab unlocked.)': 'A fogueira está queimando. Além do arame, a Zona espera. (Aba Zona liberada.)', 'The fire catches again.': 'A fogueira pega de novo.',
+    'You feed the fire. It is': 'Você alimenta a fogueira. Ela está', 'A lean-to shelter stands beside the fire. You can sleep here now.': 'Um abrigo de lona está de pé ao lado da fogueira. Agora você pode dormir aqui.',
+    'The sky is screaming. No one sleeps through an emission.': 'O céu está gritando. Ninguém dorme durante uma emissão.', 'You sleep in the lean-to (+30 HP, Tiredness restored).': 'Você dorme no abrigo (+30 PV, Cansaço restaurado).',
+    'The fire has gone out.': 'A fogueira se apagou.', 'You sleep like the dead at the Rusty Anchor (full HP, Tiredness restored).': 'Você dorme como uma pedra na Âncora Enferrujada (PV cheios, Cansaço restaurado).',
+    'Dawn of day': 'Amanhecer do dia', 'EMISSION. Sirens wail; you sit it out under cover. When it passes, the anomalies here are freshly charged.': 'EMISSÃO. Sirenes uivam; você espera abrigado. Quando passa, as anomalias daqui estão recarregadas.',
+    'EMISSION ALARM — the sky bleeds red! Reach shelter (building, sub-node, outpost or Safe Zone) within': 'ALARME DE EMISSÃO — o céu sangra vermelho! Chegue a um abrigo (prédio, subnível, posto ou Zona Segura) em até',
+    'move(s)!': 'movimento(s)!', 'Zone Event: a quiet day. Someone at the next camp will have extra gossip.': 'Evento da Zona: um dia tranquilo. Alguém no próximo acampamento terá fofoca extra.',
+    'Zone Event: a caravan is waiting at the nearest outpost (+2 extra items in stock).': 'Evento da Zona: uma caravana espera no posto mais próximo (+2 itens extras em estoque).',
+    'Zone Event: mutant migration through': 'Evento da Zona: migração de mutantes por', '(+15% encounter chance for 2 days).': '(+15% de chance de encontro por 2 dias).', 'Zone Event: a faction makes a push.': 'Evento da Zona: uma facção avança.',
+    'Zone Event:': 'Evento da Zona:', 'turns up again': 'aparece de novo', 'with a grudge — watch your back.': 'com rancor — cuidado.', 'sends word: there may be work.': 'manda avisar: pode haver trabalho.',
+    'Zone Event: a stranger on the radio asks for help, then goes quiet.': 'Evento da Zona: um estranho no rádio pede ajuda e depois se cala.', 'Zone Event: anomaly shift in': 'Evento da Zona: mudança de anomalias em',
+    '— searched anomalies can be searched again.': '— anomalias já vasculhadas podem ser vasculhadas de novo.', 'Faction movement:': 'Movimento das facções:', 'advance': 'avançam', 'lose ground': 'perdem terreno', 'GOAL COMPLETE:': 'OBJETIVO CONCLUÍDO:',
+    'Obelisk seize The Terraces. The Contractor outpost at Quarry Basin falls; Obelisk patrol Quarry Basin and the Ship Graveyard.': 'O Obelisco toma Os Terraços. O posto dos Contratados na Bacia da Pedreira cai; o Obelisco patrulha a Bacia da Pedreira e o Cemitério de Navios.',
+    'Contractors fortify Ghost Town: its hazard drops by 1, Raiders leave, and the Old Bank opens as a Tier 4 outpost.': 'Os Contratados fortificam a Cidade Fantasma: o perigo cai 1, os Saqueadores saem e o Banco Antigo abre como posto de Nível 4.',
+    'Raiders hold the Chokepoint Bridge. Crossing into or out of Black Valley now costs 200 Ru or a fight; its hazard rises by 1.': 'Os Saqueadores controlam a Ponte do Gargalo. Entrar ou sair do Vale Negro agora custa 200 Ru ou uma luta; o perigo sobe 1.',
+    'Garrison break the Siege Ward: its hazard drops by 1, and Garrison escorts become available for Act 4.': 'A Guarnição rompe o Distrito Sitiado: o perigo cai 1 e escoltas da Guarnição ficam disponíveis no Ato 4.',
+    'Ecologists map the Epicenter: artifact searches there get +2, and Ecologist outposts sell Anomaly Maps.': 'Os Ecologistas mapeiam o Epicentro: buscas por artefatos lá ganham +2, e os postos dos Ecologistas vendem Mapas de Anomalias.',
+    'take Vanguard Barracks. The Command Post (and Sergeant Kade) is theirs for good.': 'tomam o Quartel Vanguarda. O Posto de Comando (e o Sargento Kade) é deles para sempre.',
+    'You reach shelter. The emission howls past and fades. The anomalies here are freshly charged.': 'Você chega a um abrigo. A emissão uiva e se dissipa. As anomalias daqui estão recarregadas.',
+    'The emission builds...': 'A emissão cresce...', 'move(s) left to find shelter!': 'movimento(s) para achar abrigo!', 'CAUGHT IN THE OPEN: the emission tears through you for': 'PEGO A CÉU ABERTO: a emissão o atravessa causando',
+    'damage. You are Irradiated.': 'de dano. Você está Irradiado.', 'Rumor:': 'Boato:', 'Journal updated.': 'Diário atualizado.', 'A new thread: something happened here before the Zone. (Journal updated.)': 'Uma nova pista: algo aconteceu aqui antes da Zona. (Diário atualizado.)',
+    'Raiders block the Chokepoint Bridge: "200 Ru, or you go through us."': 'Saqueadores bloqueiam a Ponte do Gargalo: "200 Ru, ou vai ter que passar por nós."', 'Choose a sponsor first (or go alone) — Act 4 of the main story.': 'Escolha um patrocinador antes (ou vá sozinho) — Ato 4 da história principal.',
+    'You are STARVING or exhausted: weapon actions cost +1 AP.': 'Você está FAMINTO ou exausto: ações com armas custam +1 PA.', 'Radiation sickness gnaws at you on the march (−5 HP).': 'O mal da radiação o corrói durante a marcha (−5 PV).',
+    'Traveled to': 'Viajou para', 'Objective:': 'Objetivo:', '— done.': '— concluído.', 'Three crossings without rest — a day passes on the road.': 'Três travessias sem descanso — um dia passa na estrada.', 'You arrive without incident.': 'Você chega sem incidentes.',
+    'A wandering trader with a laden mule is here, for this scene only.': 'Um mercador ambulante com uma mula carregada está aqui, só nesta cena.', 'You pay the Raiders their 200 Ru.': 'Você paga os 200 Ru aos Saqueadores.',
+    'You refuse. The bridge crew opens fire!': 'Você recusa. O bando da ponte abre fogo!', 'Perception': 'Percepção', ': nothing but rubble and rust.': ': nada além de entulho e ferrugem.', 'you find the hidden way into': 'você encontra a entrada oculta para',
+    'A maintenance locker by the hatch holds an ALPHA ACCESS KEYCARD. (Improvised detail.)': 'Um armário de manutenção perto da escotilha guarda um CARTÃO DE ACESSO ALFA. (Detalhe improvisado.)',
+    'COMPLICATION: a rival crew is after the same objective!': 'COMPLICAÇÃO: um bando rival está atrás do mesmo objetivo!', 'COMPLICATION: not as described — there are more of them!': 'COMPLICAÇÃO: não é o que foi descrito — há mais deles!',
+    'You cross paths with a': 'Você cruza o caminho de uma', 'They watch you, weapons low.': 'Eles o observam, armas abaixadas.', 'You open fire on the': 'Você abre fogo contra os', 'The': 'A', 'patrol moves on.': 'segue em frente.',
+    'Insufficient Ru (need': 'Ru insuficiente (precisa de', 'Bought': 'Comprou', 'Bought a box of': 'Comprou uma caixa de', 'Restored': 'Restaurou', 'to Working': 'para Funcional',
+    'Free technician upgrade:': 'Melhoria grátis do técnico:', 'fitted to': 'instalada em', 'Needs': 'Requer', 'Technician fits': 'O técnico instala', 'part(s)': 'parte(s)', 'Equipped': 'Equipou',
+    'No other ammo types for': 'Nenhum outro tipo de munição para', 'Switched to': 'Trocou para', '— reload to chamber it.': '— recarregue para usá-la.', 'now loaded with': 'agora carregada com', 'You change into the': 'Você veste a',
+    'Wear armor first.': 'Vista uma armadura primeiro.', 'No free mod slot for that.': 'Sem espaço livre de mod para isso.', 'Fitted': 'Instalou', 'to your': 'na sua', 'Removed': 'Removeu', 'No free belt slot.': 'Sem espaço livre no cinto.',
+    'Field repairs only out of combat.': 'Reparos de campo só fora de combate.', 'A field kit only restores Damaged or Broken gear, never above Dirty.': 'Um kit de campo só restaura equipamento Danificado ou Quebrado, nunca acima de Sujo.', 'Patched': 'Remendou', 'now': 'agora',
+    'the': 'o', 'You eat an MRE on the march.': 'Você come uma ração na marcha.', 'Hunger,': 'Fome,', 'Energy Drink: +1 MP.': 'Energético: +1 PM.', 'Bandage: bleeding stopped.': 'Bandagem: sangramento estancado.',
+    'wound treated.': 'ferida tratada.', 'Bandage: nothing to treat.': 'Bandagem: nada para tratar.', 'Antirad: radiation purged.': 'Antirradiação: radiação eliminada.', 'every anomaly in': 'todas as anomalias em', 'is now marked.': 'agora estão marcadas.',
+    'only matters in a fight.': 'só serve numa luta.', 'You already carry six contracts.': 'Você já carrega seis contratos.', 'Contract accepted:': 'Contrato aceito:', 'Complication roll:': 'Rolagem de complicação:', 'success.': 'sucesso.', 'not yet.': 'ainda não.',
+    'A trap goes off in your face (−10 HP).': 'Uma armadilha dispara na sua cara (−10 PV).', 'Late: the clock ran out, the reward is halved.': 'Atrasado: o prazo acabou, a recompensa cai pela metade.',
+    'DOUBLE-CROSS: the giver tries to short you — you stare them down': 'TRAIÇÃO: o contratante tenta pagar menos — você o encara', 'Full pay.': 'Pagamento integral.', 'DOUBLE-CROSS: the giver shorts you 30%': 'TRAIÇÃO: o contratante paga 30% a menos',
+    'CONTRACT COMPLETE (handed to': 'CONTRATO CONCLUÍDO (entregue para', 'CONTRACT COMPLETE:': 'CONTRATO CONCLUÍDO:', 'gives you a permanent 10% discount.': 'lhe dá um desconto permanente de 10%.',
+    "Reward: a free technician upgrade (Repair Yard, Scavenger's Hub).": 'Recompensa: uma melhoria grátis do técnico (Pátio de Reparos, Refúgio dos Catadores).', 'Reward item:': 'Item de recompensa:',
+    'Yefim pokes the fire. "Before the wire, I hauled crates for a lab under the Industrial Basin loading dock. Nobody ever came back for them."': 'Yefim cutuca a fogueira. "Antes do arame, eu carregava caixotes para um laboratório sob a doca de carga da Bacia Industrial. Ninguém nunca voltou para buscá-los."',
+    'You hand the Command Post to the': 'Você entrega o Posto de Comando aos', 'STORYLINE COMPLETE:': 'HISTÓRIA CONCLUÍDA:', 'CONTACT at': 'CONTATO em', 'something you cannot see': 'algo que você não consegue ver',
+    'The air shimmers. Something cloaked is out there.': 'O ar tremeluz. Há algo camuflado por aí.', 'Something enormous stirs in the crypt. It has been waiting a long time.': 'Algo enorme se mexe na cripta. Está esperando há muito tempo.',
+    'You move into': 'Você entra em', 'carefully. The area looks quiet.': 'com cuidado. A área parece tranquila.', 'Svarog ping:': 'Sinal do Svarog:', 'marked.': 'marcado.', 'You lose': 'Você perde', 'AP this turn.': 'PA neste turno.',
+    'You are SUPPRESSED: −2 to attacks this turn (move to different cover to shake it).': 'Você está SUPRIMIDO: −2 nos ataques neste turno (mude para outra cobertura para se livrar).', 'Toxic bleed': 'Sangramento tóxico', 'Radiation: −1 HP.': 'Radiação: −1 PV.',
+    'Your stimpak wears off.': 'O efeito do estimulante passa.', 'Adrenaline:': 'Adrenalina:', 'You are prone — stand up first (1 AP).': 'Você está caído — levante-se primeiro (1 PA).', 'Not enough AP (need': 'PA insuficiente (precisa de',
+    'You dive to fresh cover — no longer suppressed.': 'Você mergulha para outra cobertura — não está mais suprimido.', 'Path obstructed.': 'Caminho obstruído.', 'Tile occupied.': 'Quadrado ocupado.', 'Out of Movement Points.': 'Sem Pontos de Movimento.',
+    'Too far:': 'Longe demais:', 'MP needed,': 'PM necessários,', 'left.': 'restantes.', 'Radiation Pocket — your closed-breathing rig filters it out.': 'Bolsão de Radiação — seu respirador fechado filtra tudo.',
+    'RADIATION POCKET: the counter screams.': 'BOLSÃO DE RADIAÇÃO: o contador grita.', 'The Compass guides you safely past the': 'A Bússola o guia com segurança pelo', 'Avoided': 'Evitado', 'Failed': 'Falhou', 'The flames consume your': 'As chamas consomem seu',
+    'Your nerves fry: −2 AP next turn.': 'Seus nervos fritam: −2 PA no próximo turno.', 'Your suit seals out the acid.': 'Seu traje veda o ácido.', 'Acid eats into you: TOXIC BLEED.': 'O ácido o corrói: SANGRAMENTO TÓXICO.',
+    'The vortex hurls you aside': 'O vórtice o arremessa para o lado', '— you are PRONE': '— você está CAÍDO', 'Weapon is BROKEN. A technician must restore it.': 'A arma está QUEBRADA. Um técnico precisa restaurá-la.', 'Weapon is jammed — clear it first.': 'A arma está travada — destrave primeiro.',
+    'Blade Dancer: at most 3 melee attacks per turn.': 'Dançarino da Lâmina: no máximo 3 ataques corpo a corpo por turno.', 'Select a target (click it on the grid).': 'Selecione um alvo (clique nele no mapa).', 'Out of range': 'Fora de alcance', 'tiles,': 'quadrados,',
+    'No line of sight.': 'Sem linha de visão.', 'Not enough rounds loaded — reload.': 'Balas carregadas insuficientes — recarregue.', "You can't pick it out of the shimmer": 'Você não consegue distingui-lo na tremulação', 'Attack wasted.': 'Ataque desperdiçado.',
+    'You spot the distortion': 'Você percebe a distorção', 'Hit and Run: +2 MP.': 'Bater e Correr: +2 PM.', 'Controlled Taps: +1 AP.': 'Disparos Controlados: +1 PA.', 'CLICK!': 'CLIQUE!', 'JAMS (natural': 'TRAVA (natural', 'Condition:': 'Condição:',
+    'Buckshot spread: the same roll against': 'Dispersão de chumbo: a mesma rolagem contra', 'Shot': 'Tiro', 'at': 'em', 'cover': 'cobertura', 'FLANKED +2': 'FLANQUEADO +2', 'Miss.': 'Errou.', 'CRITICAL!': 'CRÍTICO!',
+    'damage through a gap in the armor!': 'de dano por uma brecha na armadura!', 'Hit for': 'Acertou causando', 'staggers: −2 MP next turn.': 'cambaleia: −2 PM no próximo turno.', 'Run and Gun: +2 MP.': 'Correr e Atirar: +2 PM.',
+    "Pick a point within your rifle's range and in sight.": 'Escolha um ponto dentro do alcance do seu fuzil e à vista.', 'Suppressive Fire needs a working rifle with 3 rounds loaded.': 'Fogo de Supressão precisa de um fuzil funcionando com 3 balas carregadas.',
+    'SUPPRESSIVE FIRE: you rake the area.': 'FOGO DE SUPRESSÃO: você varre a área.', 'is pinned down': 'fica imobilizado', 'next turn': 'no próximo turno', ', Suppressed': ', Suprimido', 'keeps its head': 'mantém a cabeça fria', 'but is Suppressed': 'mas fica Suprimido',
+    'Broken weapons cannot be loaded.': 'Armas quebradas não podem ser carregadas.', 'Magazine already full.': 'Carregador já cheio.', 'Reloaded': 'Recarregou', 'and': 'e', 'left.': 'restante.', 'No': 'Sem', 'Jam cleared.': 'Arma destravada.',
+    'You get back on your feet.': 'Você se levanta.', 'Aiming:': 'Mirando:', 'on your next attack this turn.': 'no seu próximo ataque neste turno.', 'Take Cover only works next to or on cover.': 'Proteger-se só funciona junto ou sobre uma cobertura.',
+    'You hunker down: +2 AC on top of cover until your next turn.': 'Você se agacha: +2 CA além da cobertura até seu próximo turno.', 'Evasive maneuvers: +2 AC vs melee until your next turn.': 'Manobras evasivas: +2 CA contra corpo a corpo até seu próximo turno.',
+    'Select a human target.': 'Selecione um alvo humano.', 'They must be within 8 tiles and in sight.': 'Eles precisam estar a até 8 quadrados e à vista.', "laughs at you. Legends can't be cowed.": 'ri de você. Lendas não se intimidam.', 'Intimidate': 'Intimidar',
+    'They hold steady.': 'Eles se mantêm firmes.', 'It works!': 'Funciona!', 'No resolved, unsearched anomaly next to you. Step into it first.': 'Nenhuma anomalia resolvida e não vasculhada perto de você. Entre nela primeiro.',
+    'ARTIFACT': 'ARTEFATO', 'you pry a': 'você arranca um', 'out of the': 'do', 'You comb the': 'Você vasculha o', 'Nothing.': 'Nada.', 'Nothing to interact with next to you.': 'Nada para interagir perto de você.', 'Door forced': 'Porta forçada', 'The door holds': 'A porta resiste',
+    'You pry open the crates:': 'Você força os caixotes:', 'item(s) inside.': 'item(ns) dentro.', 'Decoding the drive fails': 'A decodificação do drive falha', 'DECODED': 'DECODIFICADO',
+    'The Sample Storage terminal is wiped clean.': 'O terminal do Depósito de Amostras está vazio.', 'The Sample Storage terminal is sealed. It needs the Alpha Access Keycard.': 'O terminal do Depósito de Amostras está lacrado. Precisa do Cartão de Acesso Alfa.',
+    'STORY: FRAGMENT ALPHA — the Origin Log. Project Hearth existed before the accident. The accident was an experiment. The log mentions a second site, under the Ghost Town town hall.': 'HISTÓRIA: FRAGMENTO ALFA — o Registro de Origem. O Projeto Lareira existia antes do acidente. O acidente foi um experimento. O registro menciona um segundo local, sob a prefeitura da Cidade Fantasma.',
+    'The archive terminal has nothing more to give.': 'O terminal do arquivo não tem mais nada a oferecer.', 'STORY: the Lab Beta Research Drive — FRAGMENT BETA, but encrypted. Dr. Osei could decode it, or try Intelligence DC 18 at any lab terminal.': 'HISTÓRIA: o Drive de Pesquisa do Lab Beta — FRAGMENTO BETA, mas criptografado. A Dra. Osei poderia decodificá-lo, ou tente Inteligência CD 18 em qualquer terminal de laboratório.',
+    'The terminal is dead.': 'O terminal está morto.', 'Only empty crates remain.': 'Só restam caixotes vazios.', 'The hatch to Secret Lab Beta stands open.': 'A escotilha para o Laboratório Secreto Beta está aberta.',
+    "The sealed hatch won't reveal its mechanism": 'A escotilha lacrada não revela seu mecanismo', 'The old power core is stripped.': 'O velho núcleo de energia foi saqueado.', 'In a niche of the open vault: the Gamma Relic Anatoly wants.': 'Num nicho do cofre aberto: a Relíquia Gama que Anatoly quer.',
+    'The Sealed Vault stands open.': 'O Cofre Selado está aberto.', 'The Sealed Vault holds': 'O Cofre Selado resiste', "STORY: the Sealed Vault opens. FRAGMENT GAMMA — the Source's voice, and why Obelisk serves it. Beside it hums THE COMPASS.": 'HISTÓRIA: o Cofre Selado se abre. FRAGMENTO GAMA — a voz da Fonte, e por que o Obelisco a serve. Ao lado dele zumbe A BÚSSOLA.',
+    'And the relic Anatoly wants.': 'E a relíquia que Anatoly quer.', 'The Sealed Crypt is empty.': 'A Cripta Selada está vazia.', 'The crypt door grinds but holds': 'A porta da cripta range, mas resiste', 'Strength': 'Força',
+    'The Sealed Crypt opens. On the bier: LUCIFER, warm as a coal.': 'A Cripta Selada se abre. Sobre o esquife: LUCIFER, quente como brasa.', 'Only bent light remains beside The Wound.': 'Só resta luz distorcida ao lado da Ferida.',
+    'Beside The Wound, something beats like a heart: the HEART OF THE OASIS.': 'Ao lado da Ferida, algo bate como um coração: o CORAÇÃO DO OÁSIS.', 'You brace to dodge': 'Você se prepara para esquivar do', "'s leap": ' salto', 'ready to roll aside!': 'pronto para rolar para o lado!', 'you misjudge it.': 'você calcula mal.',
+    'You break contact and slip out of the area.': 'Você rompe o contato e escapa da área.', 'You leave the prisoners to the Zone.': 'Você deixa os prisioneiros para a Zona.', 'Recovered:': 'Recuperado:', 'You cross the bridge.': 'Você atravessa a ponte.',
+    'Target tile must be within 8 tiles and in line of sight.': 'O quadrado-alvo precisa estar a até 8 quadrados e na linha de visão.', 'goes wide': 'desvia', 'and lands': 'e cai', 'off.': 'longe.', 'Your': 'Sua', 'smoke blooms — line of sight blocked.': 'fumaça se espalha — linha de visão bloqueada.',
+    'detonates!': 'detona!', 'You turn away from the flash.': 'Você desvia o olhar do clarão.', 'BLINDED by the flashbang: −2 AP next turn.': 'CEGO pela granada de luz: −2 PA no próximo turno.', 'Shrapnel tears into you:': 'Estilhaços o rasgam:', '(dove flat — PRONE)': '(se jogou no chão — CAÍDO)',
+    'is blinded: −2 AP.': 'fica cego: −2 PA.', 'caught in the blast:': 'atingido pela explosão:', 'damage': 'de dano', '(prone)': '(caído)', 'Braced plates absorb the shock — no Condition loss.': 'As placas escoradas absorvem o impacto — sem perda de Condição.',
+    'is battered:': 'está avariada:', 'ADRENALINE SURGE: +20 temporary HP and 2 AP!': 'SURTO DE ADRENALINA: +20 PV temporários e 2 PA!', 'AUTO-INJECTOR fires:': 'AUTOINJETOR dispara:', 'VITAL SIGNS TERMINATED. YOU HAVE DIED IN THE ZONE.': 'SINAIS VITAIS ENCERRADOS. VOCÊ MORREU NA ZONA.',
+    'WOUND (arm): −2 to attack rolls until bandaged.': 'FERIDA (braço): −2 nas jogadas de ataque até enfaixar.', 'WOUND (leg): −2 MP until bandaged.': 'FERIDA (perna): −2 PM até enfaixar.', 'WOUND (torso): you are BLEEDING.': 'FERIDA (tronco): você está SANGRANDO.',
+    'WOUND (head): your vision swims — −1 AP next turn.': 'FERIDA (cabeça): sua visão roda — −1 PA no próximo turno.', 'is WOUNDED': 'está FERIDO', 'arm': 'braço', 'leg': 'perna', 'torso — bleeding': 'tronco — sangrando', 'head': 'cabeça',
+    'is STAGGERED — it loses its next turn!': 'está ATORDOADO — perde o próximo turno!', 'PANICS and flees into the Zone!': 'ENTRA EM PÂNICO e foge para a Zona!', 'is down!': 'caiu!', 'The Black Star drinks the kill: +1 AP.': 'A Estrela Negra bebe o abate: +1 PA.',
+    'is SHAKEN': 'está ABALADO', 'heavy wounds': 'ferimentos graves', 'their leader fell': 'o líder caiu', 'an ally died in view': 'um aliado morreu à vista', 'their leader is gone': 'o líder se foi', 'your threats': 'suas ameaças',
+    'BREAKS and flees!': 'SE DESESPERA e foge!', 'They drop their weapon and loose Ru as they run.': 'Eles largam a arma e alguns Ru enquanto correm.', 'throws down their weapon and SURRENDERS.': 'joga a arma no chão e SE RENDE.',
+    'kicks a door open.': 'arromba uma porta com um chute.', '— Enemy round —': '— Rodada inimiga —', 'Under heavy fire — you will be SUPPRESSED.': 'Sob fogo pesado — você ficará SUPRIMIDO.', 'bleeds (−5 HP).': 'sangra (−5 PV).',
+    'rallies': 'reagrupa', 'back into the fight.': 'de volta à luta.', 'clears a jam.': 'destrava a arma.', 'reloads.': 'recarrega.', 'jams!': 'trava!', 'you are FLANKED': 'você está FLANQUEADO', 'bursts': 'dispara rajada', 'strikes': 'golpeia', 'fires': 'atira',
+    'HIT for': 'ACERTA causando', '(CRITICAL)': '(CRÍTICO)', 'reels, recovering from the stagger.': 'cambaleia, se recuperando do atordoamento.', 'Berserk + Leap': 'Frenético + Salto',
+    'crouches low, muscles coiling — it will LEAP next round!': 'se agacha, músculos tensos — vai SALTAR na próxima rodada!', 'Dodge:': 'Esquiva:', 'Agility': 'Agilidade', 'fades back into the shimmer.': 'some de novo na tremulação.',
+    'LEAPS across the sector!': 'SALTA pelo setor!', 'You roll aside — the leap misses! Advantage on your next attack.': 'Você rola para o lado — o salto erra! Vantagem no seu próximo ataque.', 'Berserk': 'Frenético', 'GROUND SLAM!': 'PANCADA NO CHÃO!',
+    'The shockwave hits you for': 'A onda de choque o atinge causando', 'Knocked PRONE': 'Derrubado — CAÍDO', 'ripples into view as it strikes!': 'surge à vista ao atacar!', 'PSI BLAST': 'RAJADA PSÍQUICA', 'attacks': 'ataca', 'psi damage!': 'de dano psíquico!',
+    'Neural overload': 'Sobrecarga neural', 'Its bite fails to pierce your suit seals.': 'A mordida não consegue furar as vedações do seu traje.', 'Toxic bite: TOXIC BLEED.': 'Mordida tóxica: SANGRAMENTO TÓXICO.', 'Its claws open you up: BLEEDING.': 'As garras o rasgam: SANGRANDO.',
+    'AREA SECURED. Threats neutralized.': 'ÁREA SEGURA. Ameaças neutralizadas.', 'The Arch-Zealot collapses. Beyond the Containment Hall, the three Fragments resonate against THE LAST GATE.': 'O Arquizelote desaba. Além do Salão de Contenção, os três Fragmentos ressoam contra O ÚLTIMO PORTÃO.',
+    'The Arch-Zealot falls — but the Last Gate stays sealed. You need all three Fragments.': 'O Arquizelote cai — mas o Último Portão continua lacrado. Você precisa dos três Fragmentos.', 'Took': 'Pegou',
+    'Interrogation': 'Interrogatório', "they won't talk.": 'eles não falam.', 'they point you to a nearby stash.': 'eles indicam um esconderijo próximo.', 'They swear they know nothing.': 'Eles juram que não sabem de nada.', 'You strip': 'Você tira o equipamento de',
+    'of their gear.': '.', 'You let them go.': 'Você os deixa ir.', 'They will not remember the favor.': 'Eles não vão lembrar do favor.', 'You execute the prisoner.': 'Você executa o prisioneiro.',
+    'You will walk the Siege Ward alone: no help, no debts.': 'Você vai atravessar o Distrito Sitiado sozinho: sem ajuda, sem dívidas.', 'will escort you through the Siege Ward. At the Last Gate, their plan for the Source becomes yours.': 'vão escoltá-lo pelo Distrito Sitiado. No Último Portão, o plano deles para a Fonte será o seu.',
+    'THE LAST GATE:': 'O ÚLTIMO PORTÃO:', 'Emissions now come only on a 20. Ecologist outposts trade at Friendly prices.': 'Agora emissões só ocorrem num 20. Os postos dos Ecologistas negociam a preço de Amigo.',
+    '+20,000 Ru. Contractors control every outpost; prices rise 20% everywhere.': '+20.000 Ru. Os Contratados controlam todos os postos; os preços sobem 20% em todo lugar.',
+    'The Zone starts to shrink: Tier 6-7 zones become Tier 5. Artifact searches −2 from now on.': 'A Zona começa a encolher: zonas de Nível 6-7 viram Nível 5. Buscas por artefatos têm −2 daqui em diante.',
+    "Every other faction is now Hostile. You are Obelisk's prophet.": 'Todas as outras facções agora são Hostis. Você é o profeta do Obelisco.', 'Every faction is wary of you (−1 all). You keep THE BLACK STAR and gain +10 Max HP for good.': 'Todas as facções desconfiam de você (−1 em todas). Você fica com A ESTRELA NEGRA e ganha +10 PV Máx. para sempre.',
+    'The campaign continues: Named mutants stalk Tier 5-7 zones, and Legend bounties are posted at the Hub.': 'A campanha continua: mutantes Nomeados rondam as zonas de Nível 5-7, e recompensas Lendárias são publicadas no Refúgio.',
+    'PROMOTION:': 'PROMOÇÃO:', 'rank mod': 'mod. de patente', 'A new perk is available.': 'Um novo talento está disponível.', 'Perk acquired:': 'Talento adquirido:', 'Progress saved.': 'Progresso salvo.',
+    'You can only save while out of combat.': 'Você só pode salvar fora de combate.', 'Save failed: browser storage unavailable.': 'Falha ao salvar: armazenamento do navegador indisponível.', 'No save file found.': 'Nenhum save encontrado.',
+    'Save loaded.': 'Save carregado.', 'Save file is corrupted or from an older version.': 'O save está corrompido ou é de uma versão antiga.', 'Erase your save and create a new stalker?': 'Apagar seu save e criar um novo stalker?',
+    'Sold': 'Vendeu', 'rounds': 'balas', 'You rest at': 'Você descansa no posto de', "'s outpost": '', 'Dr. Osei decodes FRAGMENT BETA: the mutants were bred to guard the Source, and the Antenna Grid is the relay.': 'A Dra. Osei decodifica o FRAGMENTO BETA: os mutantes foram criados para guardar a Fonte, e a Malha de Antenas é a repetidora.',
+    'Bought an Anomaly Map.': 'Comprou um Mapa de Anomalias.', 'Bought a Small Canvas Sack.': 'Comprou um Saco de Lona Pequeno.', 'Need 50 Ru.': 'Precisa de 50 Ru.', 'The PDA holds 120 Ru worth of intel and credits.': 'O PDA guarda 120 Ru em informações e créditos.',
+    'Behind the lock: 180 Ru and a crate.': 'Atrás da fechadura: 180 Ru e um caixote.', 'The rusted blast door groans open.': 'A porta blindada enferrujada se abre rangendo.', 'no luck.': 'sem sorte.', 'success!': 'sucesso!',
+    'You hold 2 AP for Overwatch.': 'Você reserva 2 PA para Vigilância.', 'You hold 1 AP for a Desperate Parry.': 'Você reserva 1 PA para um Aparo Desesperado.', 'Entrenched: +20% Phys-DR until your next turn.': 'Entrincheirado: +20% de RD-Fís até seu próximo turno.',
+    'OVERWATCH:': 'VIGILÂNCIA:', 'steps into your sights!': 'entra na sua mira!', 'DESPERATE PARRY': 'APARO DESESPERADO', 'you turn the blow aside!': 'você desvia o golpe!', 'Desperate Parry fails': 'O Aparo Desesperado falha',
+    'Neural overload (Int': 'Sobrecarga neural (Int', 'Int': 'Int', 'Rumor': 'Boato', 'An old scientist swore there is a sealed lab under the Industrial Basin loading dock, from before the Zone.': 'Um velho cientista jurou que existe um laboratório lacrado sob a doca de carga da Bacia Industrial, de antes da Zona.',
+    'Dr. Osei at the Dried Lake can decode almost anything. So can a sharp mind at a lab terminal.': 'A Dra. Osei, no Lago Seco, decodifica quase tudo. Uma mente afiada num terminal de laboratório também.',
+    'Obelisk dig around a dead broadcast van at the edge of the Antenna Grid.': 'O Obelisco cava em volta de uma van de transmissão morta na borda da Malha de Antenas.',
+    'Something sleeps in the sealed crypt under the Siege Ward, and something guards it.': 'Algo dorme na cripta lacrada sob o Distrito Sitiado, e algo a guarda.', 'Expeditions say an artifact beats like a heart beside The Wound in the Epicenter.': 'Expedições dizem que um artefato bate como um coração ao lado da Ferida, no Epicentro.',
+    'Raiders who lose a fight to you remember it. So do the ones you let walk.': 'Saqueadores que perdem uma luta para você se lembram. Os que você deixa ir também.', 'are close to managing to': 'estão perto de conseguir', "There's a hidden way into": 'Existe uma entrada oculta para',
+    'somewhere in': 'em algum lugar de', 'Sharp eyes needed': 'É preciso olhos atentos', 'is looking for someone reliable.': 'procura alguém confiável.', 'Mutants are migrating through': 'Mutantes estão migrando por',
+    'working with you': 'trabalhando com você', 'alive': 'vivo', 'friendly': 'amigável', 'hostile': 'hostil', 'grudge': 'rancor', 'fled': 'fugiu', 'owes you, or resents you': 'te deve, ou te odeia', 'let go': 'libertado', 'executed': 'executado', 'Tiredness restored': 'Cansaço restaurado',
+    'You are bleeding': 'Você está sangrando', 'Use a Bandage.': 'Use uma Bandagem.',
+};
+// Word-order rules that a phrase table can't express. Run before the phrase pass.
+const PT_RX = [
+    [/\b(HP|AP)(?= (\d{3}\b|×|\(unloaded\)|▸))/g, m => ({ HP: 'PO', AP: 'Perf' }[m])], // ammo-type shorts, not Health/Action Points
+    [/\b(Raiders|Outcasts|Wanderers|Prospectors|Garrison|Sentinels|Liberators|Contractors|Obelisk|Cartel|Ecologist|IZC) (Rookie|Experienced|Professional|Veteran|Expert|Master|Legend)\b/g, (m, f, r) => `${PT[r]} (${PT[f]})`],
+    [/Mutant Part \(T(\d)\)/g, 'Parte de Mutante (N$1)'],
+    [/\bT(\d)\b/g, 'N$1'],
+];
+let PT_RE = null;
+function tr(s) {
+    if (LANG !== 'pt' || !s) return s;
+    if (!PT_RE) {
+        for (const n of [...Object.keys(WEAPONS), ...Object.keys(ARMOR), ...Object.keys(ARTS), ...Object.keys(MODS), ...Object.keys(DETECTORS)]) if (!(n in PT)) PT[n] = n;
+        const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const keys = Object.keys(PT).sort((a, b) => b.length - a.length).map(x => (/^\w/.test(x) ? '\\b' : '') + esc(x) + (/\w$/.test(x) ? '\\b' : ''));
+        PT_RE = new RegExp(keys.join('|'), 'g');
+    }
+    for (const [rx, rep] of PT_RX) s = s.replace(rx, rep);
+    s = s.replace(PT_RE, m => PT[m] ?? m);
+    // English "in" left between translated words, then de/em + article contractions ("em O Perímetro" → "no Perímetro").
+    return s.replace(/(^|[^\p{L}])in (?=\p{Lu})/gu, '$1em ').replace(/(^|[^\p{L}])(de|em) (O|A|Os|As) (?=\p{Lu})/gu, (m, p, prep, art) => p + { de: 'd', em: 'n' }[prep] + art.toLowerCase() + ' ');
+}
+function trDom(root) {
+    if (LANG !== 'pt' || !root) return;
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && n.parentElement.closest('.grid') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) { const t = tr(n.nodeValue); if (t !== n.nodeValue) n.nodeValue = t; }
+}
+function setLang(l) {
+    LANG = l;
+    try { localStorage.setItem('the_zone_lang', l); } catch (e) { /* storage blocked */ }
+    document.documentElement.lang = l === 'pt' ? 'pt-BR' : 'en';
+    document.title = l === 'pt' ? 'A ZONA — RPG de Sobrevivência Solo' : 'THE ZONE — Solo Survival RPG';
+    document.querySelectorAll('.top-bar button[data-en]').forEach(b => { b.textContent = tr(b.dataset.en); });
+    $('lang-btn').textContent = l === 'pt' ? '[EN]' : '[PT-BR]';
+    $('chronicle-title').textContent = tr('Zone Chronicle');
+    document.querySelectorAll('.log-entry').forEach(e => { e.textContent = tr(e.dataset.en); });
+    render();
+}
+</script>
 
 <script>
 'use strict';
@@ -922,7 +1414,7 @@ function selectPerk(name) { S.p.perks.push(name); S.p.pendingPerks--; log(`Perk 
 // ===================== LOG / SAVE =====================
 function log(msg, cls = '') {
     const box = $('log-content'), el = document.createElement('div');
-    el.className = 'log-entry log-new ' + cls; el.textContent = msg;
+    el.className = 'log-entry log-new ' + cls; el.dataset.en = msg; el.textContent = tr(msg);
     box.prepend(el);
     while (box.children.length > 250) box.lastChild.remove();
 }
@@ -946,7 +1438,7 @@ function loadGame() {
     } catch (e) { log('Save file is corrupted or from an older version.', 'alert'); render(); return false; }
 }
 function wipeSave(skipConfirm) {
-    if (!skipConfirm && !confirm('Erase your save and create a new stalker?')) return;
+    if (!skipConfirm && !confirm(tr('Erase your save and create a new stalker?'))) return;
     try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
     S = freshState(); C = null; meet = null; toll = null; mode = 'create';
     render();
@@ -1893,7 +2385,7 @@ function enterAnomaly(x, y, from) {
     const r = roll(d0.anomAdv ? 1 : 0), bonus = statMod(S.p.stats.A) + (d0.det ? d0.det.bonus : 0) + d0.avoid + (has('Anomaly Whisperer') ? 2 : 0), tot = r.die + bonus;
     if (tot >= A.dc) { log(`${a.type}! Avoided (${r.txt}${sgn(bonus)} = ${tot} vs DC ${A.dc}).`, 'good'); return true; }
     const dmg = A.phys ? Math.max(1, Math.round(A.dmg * (1 - playerDR('phys')))) : Math.max(1, Math.ceil(A.dmg * (1 - playerDR('anom', a.type))));
-    if (hurtPlayer(dmg, { msg: `${a.type.toUpperCase()}! Failed (${r.txt}${sgn(bonus)} = ${tot} vs DC ${A.dc}): −${dmg} HP.` })) return false;
+    if (hurtPlayer(dmg, { msg: `${a.type}! Failed (${r.txt}${sgn(bonus)} = ${tot} vs DC ${A.dc}): −${dmg} HP.` })) return false;
     if (a.type === 'Burner' && r.die === 1) {
         const meds = Object.keys(S.p.inv).filter(n => ITEMS[n] && ITEMS[n].med);
         if (meds.length) { const m = pick(meds); take(m); log(`The flames consume your ${m}!`, 'alert'); }
@@ -2611,7 +3103,7 @@ function sponsorOptions() {
 function resolveEnding() {
     const w = S.w, sp = w.story.sponsor || 'Alone', e = endingFor(sp);
     w.story.done = true; w.story.ending = e;
-    log(`THE LAST GATE: ${ENDINGS[e].title.toUpperCase()} (${sp}). ${ENDINGS[e].text}`, 'gold');
+    log(`THE LAST GATE: ${ENDINGS[e].title} (${sp}). ${ENDINGS[e].text}`, 'gold');
     if (e === 'Contain') log('Emissions now come only on a 20. Ecologist outposts trade at Friendly prices.');
     if (e === 'Sell') { S.p.ru += 20000; log('+20,000 Ru. Contractors control every outpost; prices rise 20% everywhere.'); }
     if (e === 'Destroy') log('The Zone starts to shrink: Tier 6-7 zones become Tier 5. Artifact searches −2 from now on.');
@@ -2686,12 +3178,14 @@ function render() {
     if (mode !== 'world') {
         tabsEl.innerHTML = '';
         view.innerHTML = { create: viewCreate, dead: viewDead, endgame: viewEndgame, combat: viewCombat }[mode]();
+        trDom($('left-col')); trDom(view);
         return;
     }
     const tabs = availableTabs();
     if (!tabs.includes(tab)) tab = tabs.includes('zone') ? 'zone' : tabs[0];
     tabsEl.innerHTML = tabs.map(t => B(tabLabel(t), () => { tab = t; }, { cls: 'tab-btn' + (t === tab ? ' active' : '') })).join('');
     view.innerHTML = (S.p.pendingPerks > 0 ? viewPerk() : '') + { camp: viewCamp, zone: viewZone, trade: viewTrade, hub: viewHub, quests: viewQuests, sheet: viewSheet }[tab]();
+    trDom($('left-col')); trDom(tabsEl); trDom(view);
 }
 const survCol = v => (v <= 0.05 ? '#f44' : v < 3 ? '#fa4' : '#b0b0b0');
 function renderLeft() {
@@ -2738,6 +3232,7 @@ function renderLeft() {
 function viewCreate() {
     const p = S.p, left = 6 - Object.values(p.stats).reduce((s, v) => s + v - 10, 0);
     let h = '<h2>THE ZONE</h2><p class="center muted">A solo survival RPG in the Exclusion Zone.</p>';
+    h += '<h3>Language</h3>' + B('English', () => setLang('en'), { cls: 'btn' + (LANG === 'en' ? ' sel' : '') }) + B('Português (BR)', () => setLang('pt'), { cls: 'btn' + (LANG === 'pt' ? ' sel' : '') });
     h += `<h3>Name</h3><input class="text-in" maxlength="20" value="${escH(p.name)}" oninput="S.p.name=this.value">`;
     h += `<h3>Attributes — ${left} point(s) left (each 6–16)</h3>`;
     const lbl = { S: 'Strength — doors, heavy objects', P: 'Perception — spotting, searching', A: 'Agility — attacks, anomaly avoidance', I: 'Intelligence — terminals, artifacts' };
@@ -2998,7 +3493,7 @@ function viewSheet() {
 }
 function viewCombat() {
     const p = S.p, w = eqW(), wd = eqWD(), hostile = hostilesLeft(), mine = myTurn();
-    let h = `<h2 class="${hostile ? 'alert' : ''}">${hostile ? 'TACTICAL COMBAT' : 'EXPLORING'} — ${C.lm.toUpperCase()}, ${C.zone.toUpperCase()}</h2>`;
+    let h = `<h2 style="text-transform:uppercase" class="${hostile ? 'alert' : ''}">${hostile ? 'TACTICAL COMBAT' : 'EXPLORING'} — ${C.lm}, ${C.zone}</h2>`;
     h += `<div class="apbar">Turn ${C.turn} · AP ${C.ap}/${C.apMax} · MP ${C.mp}/${C.mpMax}${C.coverMp ? ` (+${C.coverMp} cover MP)` : ''} · AC ${playerAC()}${C.takeCover ? ' (+2 taking cover)' : ''}${C.evasive ? ' (+2 vs melee)' : ''}</div>`;
     if (w) h += `<div class="small center">${w.name} (${w.cond})${wd.cal ? ` — ${w.jammed ? '<span class="alert">JAMMED</span>' : `${w.mag}/${capOf(w)} ${AMMO[w.ammo].short}`}, range ${effRange(w)}` : ' — melee'}</div>`;
     const flags = [];
@@ -3154,6 +3649,7 @@ S = freshState();
 let hasSave = false;
 try { hasSave = !!localStorage.getItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
 if (!(hasSave && loadGame())) { mode = 'create'; render(); }
+if (LANG === 'pt') setLang('pt');
 </script>
 </body>
 </html>
