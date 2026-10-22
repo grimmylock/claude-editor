@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE ZONE — Solo Survival RPG</title>
+<style>
+    * { box-sizing: border-box; }
+    body { background-color: #0a0a0a; color: #b0b0b0; font-family: 'Courier New', Courier, monospace; margin: 0; padding: 15px; display: flex; justify-content: center; height: 100vh; overflow: hidden; }
+    #game-container { display: flex; width: 100%; max-width: 1400px; gap: 15px; position: relative; height: 100%; }
+    .column { flex: 1; display: flex; flex-direction: column; padding: 8px; overflow-y: auto; }
+    #left-col { border-right: 1px solid #2a2a2a; max-width: 320px; }
+    #right-col { border-left: 1px solid #2a2a2a; max-width: 380px; }
+    #mid-col { flex: 1.6; align-items: center; }
+    #view { width: 100%; display: flex; flex-direction: column; align-items: center; }
+
+    .stat-bar { margin-bottom: 2px; font-size: 0.85em; }
+    .alert { color: #ff4444; font-weight: bold; }
+    .warn { color: #ffaa00; }
+    .good { color: #44ff44; }
+    .gold { color: #ffd700; }
+    .dim, .muted { color: #666; }
+    .day { color: #8af; }
+    .small { font-size: 0.75em; }
+    .center { text-align: center; }
+    .emission { color: #ff2222; text-shadow: 0 0 5px #ff0000; font-weight: bold; }
+
+    .top-bar { position: absolute; top: -12px; right: 0; display: flex; gap: 6px; z-index: 10; }
+    .top-bar button { background: #111; border: 1px solid #333; color: #777; cursor: pointer; font-family: inherit; font-size: 0.75em; padding: 2px 6px; }
+    .top-bar button:hover { color: #fff; border-color: #888; }
+
+    .nav-tabs { display: flex; gap: 6px; margin-bottom: 10px; border-bottom: 1px solid #2a2a2a; width: 100%; justify-content: center; padding-bottom: 8px; flex-wrap: wrap; min-height: 8px; }
+    .tab-btn { background: none; border: 1px solid #333; color: #666; padding: 4px 10px; cursor: pointer; font-family: inherit; font-size: 0.8em; }
+    .tab-btn.active { color: #fff; border-color: #888; background-color: #1a1a1a; }
+    .tab-btn:hover:not(.active) { color: #aaa; }
+
+    .btn { background-color: #141414; color: #aaa; border: 1px solid #333; padding: 7px 12px; margin-bottom: 6px; cursor: pointer; font-family: inherit; width: 92%; text-align: center; transition: 0.15s; font-size: 0.85em; }
+    .btn:hover:not(:disabled) { background-color: #262626; color: #fff; border-color: #666; }
+    .btn:disabled, .c-btn:disabled, .inv-btn:disabled, .stat-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+    .btn.sel { border-color: #ffd700; color: #ffd700; }
+
+    .stat-btn { background: #111; color: #44ff44; border: 1px solid #333; cursor: pointer; font-family: inherit; font-size: 0.8em; padding: 0 6px; margin-left: 3px; }
+    .inv-item { display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-bottom: 3px; border-bottom: 1px dashed #222; padding-bottom: 2px; font-size: 0.8em; }
+    .inv-btn { background: #1a1a1a; color: #888; border: 1px solid #444; cursor: pointer; font-family: inherit; font-size: 0.75em; padding: 1px 4px; white-space: nowrap; }
+    .inv-btn:hover:not(:disabled) { color: #fff; border-color: #777; }
+
+    .log-entry { margin-bottom: 6px; opacity: 0.8; font-size: 0.82em; line-height: 1.3; }
+    .log-new { opacity: 1; }
+    .log-new:not(.alert):not(.warn):not(.good):not(.gold):not(.day) { color: #fff; }
+    h2 { font-size: 1em; border-bottom: 1px solid #2a2a2a; padding-bottom: 3px; width: 100%; text-align: center; margin: 6px 0; color: #ddd; }
+    h3 { font-size: 0.85em; border-bottom: 1px solid #222; padding-bottom: 2px; width: 100%; margin: 10px 0 4px 0; color: #888; text-transform: uppercase; }
+    p { font-size: 0.85em; line-height: 1.4; width: 92%; }
+    .panel { border: 1px solid #444; padding: 6px 8px; margin-bottom: 6px; width: 100%; font-size: 0.82em; line-height: 1.4; }
+    .panel.gold-b { border-color: #ffd700; }
+    .row { width: 100%; font-size: 0.82em; margin-bottom: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .text-in { background: #111; color: #fff; border: 1px solid #444; font-family: inherit; padding: 5px; width: 92%; }
+
+    .grid { background: #000; border: 1px solid #333; padding: 6px; font-size: 1.15em; line-height: 1.25; user-select: none; margin: 6px 0; }
+    .grow { display: flex; }
+    .cell { width: 1.35em; text-align: center; cursor: pointer; color: #3a6; }
+    .cell:hover { outline: 1px solid #555; }
+    .c-wall { color: #555; } .c-cover { color: #bb9; } .c-hard { color: #dd6; } .c-high { color: #8af; } .c-rubble { color: #765; }
+    .c-door { color: #c8f; } .c-term { color: #0ff; } .c-anom { color: #f0f; }
+    .c-player { color: #fff; font-weight: bold; } .c-human { color: #f55; font-weight: bold; } .c-mutant { color: #fa4; font-weight: bold; } .c-dim { color: #666; }
+    .c-target { background: #500; } .c-smoke { background: #333; } .c-reach { background: #0b1d0b; }
+    .controls { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; justify-content: center; width: 100%; }
+    .c-btn { background: #181818; color: #ddd; border: 1px solid #444; padding: 5px 8px; cursor: pointer; font-family: inherit; font-size: 0.8em; }
+    .c-btn:hover:not(:disabled) { background-color: #333; color: #fff; }
+    .c-btn.red { background: #500; } .c-btn.blue { background: #034; } .c-btn.yel { background: #330; } .c-btn.pur { background: #303; }
+    .apbar { color: #00ffff; font-weight: bold; margin: 4px 0; font-size: 0.85em; text-align: center; }
+
+    body.minimalist { background-color: #000 !important; color: #fff !important; }
+    body.minimalist * { border-color: #fff !important; }
+    body.minimalist .btn, body.minimalist .tab-btn, body.minimalist .c-btn, body.minimalist .inv-btn, body.minimalist .stat-btn { background-color: #000 !important; color: #fff !important; }
+    body.minimalist .btn:hover, body.minimalist .tab-btn.active, body.minimalist .c-btn:hover:not(:disabled) { background-color: #fff !important; color: #000 !important; }
+    body.minimalist .cell, body.minimalist .apbar { color: #fff !important; }
+
+    @media (max-width: 900px) {
+        body { height: auto; overflow: auto; padding: 8px; }
+        #game-container { flex-direction: column; }
+        #left-col, #right-col { max-width: none; border: none; }
+        #right-col { max-height: 40vh; }
+    }
+</style>
+</head>
+<body>
+<div id="game-container">
+    <div class="top-bar">
+        <button onclick="saveGame()">[Save]</button>
+        <button onclick="loadGame()">[Load]</button>
+        <button onclick="wipeSave()">[Wipe]</button>
+        <button onclick="toggleTheme()">[Contrast]</button>
+    </div>
+    <div class="column" id="left-col"></div>
+    <div class="column" id="mid-col">
+        <div class="nav-tabs" id="main-tabs"></div>
+        <div id="view"></div>
+    </div>
+    <div class="column" id="right-col">
+        <h2>Zone Chronicle</h2>
+        <div id="log-content"></div>
+    </div>
+</div>
+
+<script>
+'use strict';
+// Rules source: docs/00-04. Files 05-10 (perks, map, loot, economy, quests, living world) were not
+// provided, so perks, prices, loot tables, quest bank and day events below are improvised.
+
+// ===================== UTIL =====================
+const $ = id => document.getElementById(id);
+const d = n => 1 + Math.floor(Math.random() * n);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const statMod = v => Math.floor((v - 10) / 2);
+const sgn = n => (n >= 0 ? '+' : '') + n;
+const pct = x => Math.round(x * 100) + '%';
+const escH = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function wpick(weights) {
+    let t = 0; for (const key in weights) t += weights[key];
+    let r = Math.random() * t;
+    for (const key in weights) { r -= weights[key]; if (r < 0) return key; }
+    return Object.keys(weights)[0];
+}
+const man = (ax, ay, bx, by) => Math.abs(ax - bx) + Math.abs(ay - by);
+const k = (x, y) => x + ',' + y;
+const DIR4 = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+const DIR8 = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
+
+// ===================== DATA: RANKS =====================
+const RANKS = [
+    { name: 'Rookie', ap: 4, mp: 4, mod: -1, shaken: .75, broken: .50 },
+    { name: 'Experienced', ap: 4, mp: 4, mod: 0, shaken: .55, broken: .30 },
+    { name: 'Professional', ap: 5, mp: 4, mod: 1, shaken: .50, broken: .25 },
+    { name: 'Veteran', ap: 5, mp: 4, mod: 1, shaken: .45, broken: .20 },
+    { name: 'Expert', ap: 5, mp: 5, mod: 2, shaken: .40, broken: .15 },
+    { name: 'Master', ap: 5, mp: 5, mod: 2, shaken: .35, broken: .10 },
+    { name: 'Legend', ap: 5, mp: 5, mod: 3, shaken: 0, broken: .01 },
+];
+const PERK_RANKS = [2, 4, 6];
+
+// ===================== DATA: WEAPONS (file 01) =====================
+const CAT = {
+    melee: { label: 'Melee', box: 0 },
+    sidearm: { label: 'Sidearm', box: 18 },
+    smg: { label: 'SMG', box: 30, burstAp: 2, burstPen: -1, burstRounds: 5, burstMult: 2.4 },
+    shotgun: { label: 'Shotgun', box: 8 },
+    assault: { label: 'Assault Rifle', box: 15, burstAp: 3, burstPen: -3, burstRounds: 3, burstMult: 2.0 },
+    sniper: { label: 'Sniper Rifle', box: 5 },
+    heavy: { label: 'Heavy Weapon', box: 25, burstAp: 3, burstPen: -3, burstRounds: 10, burstMult: 3.0 },
+};
+const WEAPONS = {};
+function defW(cat, rows) {
+    rows.forEach(([name, dmg, cal, cap, range, weight, tier, t = {}]) => { WEAPONS[name] = { name, cat, dmg, cal, cap, range, weight, tier, ...t }; });
+}
+defW('melee', [
+    ['Hunting Knife', 20, null, 0, 1, 0.5, 1], ['Spetsnaz Switchblade', 25, null, 0, 1, 0.5, 2],
+    ['Kizlyar Machete', 30, null, 0, 1, 0.8, 3, { ignore: .1 }], ['Serrated Trench Knife', 36, null, 0, 1, 0.6, 4, { bleed: 17 }],
+    ['Monolith Ritual Blade', 45, null, 0, 1, 0.7, 5, { ignore: .2, lootOnly: true }],
+]);
+defW('sidearm', [
+    ['PMm', 12, '9x18mm', 8, 6, 0.7, 1, { compact: true }], ['Walker P9m', 15, '9x19mm', 16, 8, 0.8, 2, { compact: true }],
+    ['Colt M1911', 16, '.45 ACP', 7, 6, 1.1, 2], ['M1917 Revolver', 18, '.45 ACP', 6, 8, 1.1, 1],
+    ['SP-21 Gyurza', 15, '9x21mm', 18, 8, 1.0, 3, { ignore: .1 }], ['Black Kite', 22, '.357 Mag', 9, 8, 1.2, 3, { recoil: true }],
+    ['FN Five-seveN', 17, '5.7x28mm', 20, 10, 0.7, 4, { ignore: .1, compact: true }], ['Chiappa Rhino', 20, '.357 Mag', 6, 10, 0.9, 4, { rhino: true }],
+    ['Steppe Eagle', 25, '.44 Mag', 8, 8, 2.0, 4, { recoil: true }], ['RSh-12', 40, '12.7x55mm', 5, 10, 2.2, 5, { ignore: .2 }],
+]);
+defW('smg', [
+    ['Skorpion vz. 61', 11, '.32 ACP', 20, 6, 1.3, 1, { compact: true }], ['PP-19 Bizon', 12, '9x18mm', 64, 8, 2.5, 2],
+    ['Viper 5 (MP5)', 14, '9x19mm', 30, 10, 2.5, 3], ['UMP-45', 16, '.45 ACP', 25, 8, 2.3, 3],
+    ['MP7', 13, '4.6x30mm', 40, 10, 1.9, 4, { ignore: .1, compact: true }],
+]);
+defW('shotgun', [
+    ['Sawed-off TOZ-66', 30, '12g', 2, 4, 2.0, 1, { compact: true }], ['Winchester 1887', 31, '12g', 5, 4, 3.6, 2],
+    ['Chaser 13', 30, '12g', 6, 4, 3.2, 2], ['Remington 870', 30, '12g', 7, 4, 3.6, 2], ['Mossberg 590', 32, '12g', 8, 4, 3.4, 3],
+    ['TOZ-34', 34, '12g', 2, 6, 3.2, 3], ['Protecta', 32, '12g', 12, 4, 4.2, 4, { reloadAp: 2 }], ['SPSA14', 33, '12g', 8, 4, 4.4, 4],
+    ['Saiga-12', 32, '12g', 10, 4, 3.6, 4], ['Vepr-12', 33, '12g', 10, 6, 4.5, 4],
+]);
+defW('assault', [
+    ['AKS-74U', 18, '5.45x39mm', 30, 12, 2.7, 1, { compact: true }], ['SR-3M Vikhr', 26, '9x39mm', 30, 10, 2.0, 2, { compact: true, ignore: .1 }],
+    ['AK-74', 22, '5.45x39mm', 30, 16, 3.3, 2, { burstPen: -2 }], ['AKM', 25, '7.62x39mm', 30, 16, 3.5, 2, { woundAt: 15 }],
+    ['VLA (AS Val)', 28, '9x39mm', 20, 14, 2.6, 3, { ignore: .1 }], ['TRs-301', 24, '5.56x45mm', 30, 18, 3.4, 3, { hitSingle: 1 }],
+    ['G36K', 24, '5.56x45mm', 30, 18, 3.0, 3, { aim: 3 }], ['AK-103', 26, '7.62x39mm', 30, 18, 3.6, 3, { reliable: true }],
+    ['IL86 (L85A1)', 27, '5.56x45mm', 30, 18, 4.4, 4, { scope: true, finicky: true }], ['AK-74 OBELISK', 25, '5.45x39mm', 30, 18, 3.6, 4, { hit: 1 }],
+    ['AN-94 Abakan', 22, '5.45x39mm', 30, 18, 3.9, 4, { burstAp: 2 }], ['FN FAL', 30, '7.62x51mm', 20, 20, 4.4, 4, { burstPen: -4 }],
+    ['FT-200M (F2000)', 33, '5.56x45mm', 30, 20, 3.6, 5, { compact: true, hit: 1 }],
+]);
+defW('sniper', [
+    ['SKS', 30, '7.62x39mm', 10, 22, 3.9, 2], ['Winchester 1886/1892', 32, '.44 Mag', 8, 18, 3.2, 3], ['Vintar BC', 35, '9x39mm', 10, 18, 2.6, 3],
+    ['Mosin Nagant', 40, '7.62x54mmR', 5, 26, 4.0, 3], ['Marlin Dark Series', 38, '.45-70 Govt', 6, 18, 3.4, 4, { ignore: .1 }],
+    ['SR-25', 38, '7.62x51mm', 20, 24, 4.9, 4], ['SVDm-2', 45, '7.62x54mmR', 10, 28, 4.5, 4], ['SV-98', 45, '7.62x54mmR', 10, 28, 5.8, 4],
+    ['VSSK Vychlop', 55, '12.7x55mm', 5, 28, 6.5, 5, { ignore: .3 }], ['Barrett M82', 60, '.50 BMG', 10, 32, 13.0, 5, { ignore: .5 }],
+    ['Item 62 Gauss Rifle', 80, '2mm Battery', 10, 32, 9.0, 5, { ignore: .8 }],
+]);
+defW('heavy', [
+    ['M249 SAW', 22, '5.56x45mm', 200, 16, 7.5, 3], ['RPD', 24, '7.62x39mm', 100, 16, 7.4, 3], ['RP-74 (PKM)', 28, '7.62x54mmR', 100, 18, 8.0, 4],
+    ['PKP Pecheneg', 28, '7.62x54mmR', 100, 20, 8.5, 4, { burstJamImmune: true }], ['PKP Pecheneg Zulu', 28, '7.62x54mmR', 100, 20, 9.0, 5, { hit: 1 }],
+]);
+const AMMO = { 'Standard': { price: 150, short: 'Std' }, 'Hollow Point': { price: 250, short: 'HP' }, 'Dart': { price: 400, short: 'Dart' }, 'Armor Piercing': { price: 600, short: 'AP' } };
+function burstOf(wd) {
+    const c = CAT[wd.cat]; if (!c.burstAp) return null;
+    return { ap: wd.burstAp || c.burstAp, pen: wd.burstPen ?? c.burstPen, rounds: c.burstRounds, mult: c.burstMult };
+}
+
+// ===================== DATA: ARMOR & MODS (file 02) =====================
+const ARMOR = {};
+[ // name, phys, anom, belt, mod slots, MP, weight, tier, flags
+    ['Leather Jacket', .10, .05, 1, 1, 4, 3, 1], ['Raider Jacket', .15, .10, 1, 1, 4, 5, 1], ['Heavy Trenchcoat', .15, .10, 2, 1, 4, 7, 1],
+    ['CS Novice Suit', .12, .20, 2, 1, 4, 4, 1], ['Scrap-Plated Vest', .20, .05, 0, 1, 3, 10, 1],
+    ['Wind of Liberty', .15, .25, 3, 2, 4, 5, 2], ['CS-1 Recon', .20, .30, 3, 2, 4, 7, 2], ['Merc Light', .20, .15, 2, 2, 4, 4, 2],
+    ['Sunrise Suit', .25, .25, 2, 2, 4, 6, 2], ['Raider Stitched Coat', .25, .15, 1, 2, 4, 4, 2], ['PS5-M Universal', .30, .10, 1, 2, 4, 6, 2],
+    ['NBC Suit', .25, .50, 1, 1, 3, 8, 2], ['Obelisk Patrol', .35, .40, 1, 1, 3, 9, 2],
+    ['SSP-99 Ecologist', .10, .70, 4, 1, 4, 7, 3, { noToxic: true }], ['IZC Scout', .25, .30, 3, 2, 5, 6, 3], ['SEVA Suit', .30, .80, 3, 3, 4, 10, 3],
+    ['Guardian of Liberty', .35, .35, 3, 2, 4, 8, 3], ['Merc ACE Base', .35, .30, 3, 3, 4, 8, 3], ['Obelisk Scientific', .35, .60, 2, 2, 4, 9, 3],
+    ['PSZ-9d Sentinel', .45, .15, 1, 2, 3, 8, 3], ['Berill-5M', .50, .15, 1, 2, 3, 9, 3], ['Raider Veteran Coat', .35, .20, 2, 2, 4, 6, 3],
+    ['SSP-99M Emerald', .20, .80, 5, 2, 4, 8, 4], ['CS-3a Pathfinder', .30, .60, 4, 3, 4, 9, 4], ['Merc ACE Scientific', .40, .45, 4, 3, 4, 10, 4],
+    ['Sentinel Vanguard', .45, .30, 2, 3, 4, 11, 4], ['IZC Operative', .42, .35, 3, 3, 4, 10, 4], ['Cartel Rad-Suit', .40, .65, 4, 2, 4, 10, 4],
+    ['Bulat/Skat-9M', .55, .40, 2, 3, 3, 14, 4, { noCrit: true }], ['Proto-Exoskeleton', .65, .20, 2, 2, 3, 20, 4], ['Obelisk Heavy', .62, .80, 1, 2, 3, 16, 4],
+    ['Raider Boss Coat', .45, .25, 3, 2, 4, 9, 4],
+    ['Radiant SEVA', .40, .80, 4, 3, 4, 12, 5, { anomAdv: true }], ['Liberator Exoskeleton', .65, .35, 2, 3, 3, 35, 5],
+    ['Wanderer Exoskeleton', .70, .25, 3, 2, 3, 40, 5, { noProne: true }], ['Obelisk Exoskeleton', .75, .90, 1, 2, 2, 40, 5, { noProne: true }],
+    ['Sentinel Nosorog', .85, .20, 1, 2, 2, 50, 5, { halfDrain: true }],
+].forEach(([name, phys, anom, belt, slots, mp, weight, tier, f = {}]) => { ARMOR[name] = { name, phys, anom, belt, slots, mp, weight, tier, ...f }; });
+
+const MODS = {
+    'Kevlar Weave': { phys: .10, price: 800, desc: '+10% Phys-DR' },
+    'Ceramic Plates': { phys: .20, price: 2500, desc: '+20% Phys-DR' },
+    'Treated Mutant Hide': { price: 1200, desc: '+15% Phys-DR vs mutants' },
+    'Titanium Grid': { phys: .15, mp: -1, price: 1800, desc: '+15% Phys-DR, −1 MP' },
+    'Lead-Lined Fabric': { anom: .30, price: 2200, desc: '+30% Anom-DR' },
+    'Asbestos Coating': { price: 900, desc: '+30% Anom-DR vs Burners' },
+    'Faraday Mesh': { price: 900, desc: '+30% Anom-DR vs Electros' },
+    'Psi-Stimulator Earpiece': { price: 1500, desc: '+20% Anom-DR vs psi' },
+    'Artifact Pouch': { price: 1000, desc: '+1 Belt Slot' },
+    'Servomotors': { carry: 10, price: 1500, desc: '+10kg carry' },
+    'Advanced Hydraulics': { carry: 20, mp: 1, price: 4500, desc: '+20kg carry, +1 MP' },
+    'Auto-Injector': { price: 1200, desc: 'Auto-uses a medkit/stimpak at ≤20 HP, once per fight' },
+    'Closed-Breathing': { price: 700, desc: 'Negates Radiation Pockets' },
+};
+const BACKPACKS = { 'Small Canvas Sack': { carry: 10, price: 300 }, 'Tourist Frame': { carry: 50, price: 1500 } };
+
+// ===================== DATA: ARTIFACTS, ANOMALIES, DETECTORS (file 03) =====================
+const ARTS = {
+    'Jellyfish': { fam: 'Gravitational', tier: 1, pen: .05, carry: 5 },
+    'Vyvert': { fam: 'Gravitational', tier: 2, pen: .10, carry: 10 },
+    'Gravi': { fam: 'Gravitational', tier: 3, pen: .15, carry: 15 },
+    'Goldfish': { fam: 'Gravitational', tier: 5, pen: .25, carry: 30 },
+    'Blood Stone': { fam: 'Chemical', tier: 1, pen: .05, regen: 1 },
+    'Fiery Rouge': { fam: 'Chemical', tier: 2, pen: .10, regen: 2 },
+    'Battery': { fam: 'Chemical', tier: 3, pen: .15, regen: 3 },
+    'Firefly': { fam: 'Chemical', tier: 5, pen: .25, regen: 5 },
+    'Droplets': { fam: 'Thermal', tier: 1, pen: .05, bleed: 3 },
+    'Stone Blood': { fam: 'Thermal', tier: 2, pen: .10, bleed: 1 },
+    "Mama's Beads": { fam: 'Thermal', tier: 4, pen: .20, bleed: 0 },
+    'Sparkler': { fam: 'Electrical', tier: 1, pen: .05, mp: 1 },
+    'Flash': { fam: 'Electrical', tier: 3, pen: .15, mp: 1, avoid: 1 },
+    'Snowflake': { fam: 'Electrical', tier: 5, pen: .25, mp: 2, avoid: 2 },
+    'Heart of the Oasis': { tier: 6, legend: true, pen: .30, regen: 10, bleed: 0, noBleed: true },
+    'The Compass': { tier: 6, legend: true, pen: .30, compass: true },
+    'Lucifer': { tier: 6, legend: true, pen: .40, ap: 1, phys: .10, anomB: .10, lucifer: true },
+    'The Black Star (Awakened)': { tier: 6, legend: true, pen: .35, bypass: .30, killAp: true, carry: -10 },
+};
+function artDesc(n) {
+    const a = ARTS[n], e = [];
+    if (a.carry) e.push(`${sgn(a.carry)}kg carry`); if (a.regen) e.push(`+${a.regen} HP regen/turn`);
+    if (a.bleed !== undefined) e.push(a.bleed ? `bleeding ${a.bleed} HP/turn` : 'negates bleeding');
+    if (a.mp) e.push(`+${a.mp} MP`); if (a.avoid) e.push(`+${a.avoid} anomaly avoidance`);
+    if (a.compass) e.push('auto-pass anomaly checks'); if (a.lucifer) e.push('+1 AP, +10% Phys/Anom-DR, Max HP 75');
+    if (a.bypass) e.push('bypass 30% Phys-DR, kills refund 1 AP');
+    return `${a.legend ? 'LEGENDARY' : a.fam + ' T' + a.tier}: ${e.join(', ')}; −${pct(a.pen)} Anom-DR`;
+}
+const ANOMALIES = {
+    'Burner': { dc: 12, dmg: 50, w: 3 },
+    'Electro': { dc: 14, dmg: 60, w: 3 },
+    'Fruit Punch': { dc: 11, dmg: 30, w: 3 },
+    'Whirligig': { dc: 15, dmg: 80, phys: true, w: 2 },
+    'Radiation Pocket': { dc: null, dmg: 10, w: 2 },
+};
+const DETECTORS = {
+    'Echo Detector': { bonus: 1, range: 1, price: 1000 },
+    'Bear Detector': { bonus: 2, range: 2, price: 3000 },
+    'Veles Detector': { bonus: 3, range: 4, price: 10000 },
+    'Svarog Detector': { bonus: 4, range: 6, price: 15000, reveal: true },
+};
+
+// ===================== DATA: ITEMS (file 05 missing — improvised) =====================
+const ITEMS = {
+    'Wood': { w: 0.5, sell: 3 }, 'Scrap Metal': { w: 1.0, sell: 20 },
+    'MRE': { w: 0.5, price: 60 }, 'Bandage': { w: 0.2, price: 40, med: true },
+    'Basic Medkit': { w: 0.5, price: 120, heal: 30, med: true }, 'Military Medkit': { w: 0.8, price: 300, heal: 50, med: true },
+    'Scientific Medkit': { w: 1.0, price: 500, heal: 70, cureRad: true, med: true },
+    'Basic Stimpak': { w: 0.3, price: 150, temp: 20, med: true }, 'Combat Stimpak': { w: 0.3, price: 400, temp: 40, med: true },
+    'Antirad Pill': { w: 0.1, price: 80, med: true }, 'Field Repair Kit': { w: 1.0, price: 300 },
+    'Frag Grenade': { w: 0.5, price: 250 }, 'Smoke Grenade': { w: 0.5, price: 150 }, 'Flashbang': { w: 0.5, price: 200 },
+    'Mutant Trophy (T1)': { w: 1.0, sell: 60 }, 'Mutant Trophy (T2)': { w: 1.0, sell: 150 }, 'Mutant Trophy (T3)': { w: 1.5, sell: 300 },
+    'Mutant Trophy (T4)': { w: 2.0, sell: 500 }, 'Mutant Trophy (T5)': { w: 2.0, sell: 800 },
+    "Yefim's Lockbox": { w: 2.0, quest: true },
+};
+const BASELINE = ['MRE', 'Bandage', 'Basic Medkit', 'Basic Stimpak', 'Antirad Pill', 'Frag Grenade', 'Smoke Grenade', 'Flashbang', 'Field Repair Kit'];
+
+const PERKS = {
+    'Recoil Control': 'No burst penalty with assault rifles.',
+    'Breacher': '+4 damage on shotgun hits within 4 tiles.',
+    'Pack Mule': 'Base carry capacity 50kg.',
+    'Quick Hands': 'Reloading costs 0 AP.',
+    'Gunsmith': 'Clearing a jam costs 0 AP.',
+    'Controlled Taps': 'A kept d20 of 15+ refunds 1 AP, once per turn.',
+    'Artifact Handler': 'Artifact Anom-DR penalties are halved.',
+    'Combat Medic': '+10 HP from all healing items.',
+    'Sprinter': '+1 MP.',
+};
+
+const LOADOUTS = {
+    'Scavenger': { desc: 'Hunting Knife, PMm + 30 rds 9x18mm, Leather Jacket, 2 Basic Medkit, 1 Bandage, 200 Ru.', weapons: [['Hunting Knife'], ['PMm', 30]], armor: 'Leather Jacket', items: { 'Basic Medkit': 2, 'Bandage': 1 }, ru: 200 },
+    'Ex-Military': { desc: 'AKS-74U + 60 rds 5.45x39mm, Spetsnaz Switchblade, Raider Jacket, 1 Basic Medkit, 1 Basic Stimpak, 100 Ru.', weapons: [['AKS-74U', 60], ['Spetsnaz Switchblade']], armor: 'Raider Jacket', items: { 'Basic Medkit': 1, 'Basic Stimpak': 1 }, ru: 100 },
+    'Freelance Trader': { desc: 'PMm + 30 rds, Scrap-Plated Vest, Small Canvas Sack, 1 Basic Medkit, 500 Ru.', weapons: [['PMm', 30]], armor: 'Scrap-Plated Vest', backpack: 'Small Canvas Sack', items: { 'Basic Medkit': 1 }, ru: 500 },
+};
+
+// ===================== DATA: MUTANTS & FACTIONS (file 04) =====================
+const MUTANTS = {
+    'Blind Maw': { tier: 1, hp: 40, dr: 0, ap: 4, mp: 5, ac: 11, dmg: 8, agi: 1, beh: 'pack', panic: .40, pack: true },
+    'Flesh Stalker': { tier: 1, hp: 45, dr: 0, ap: 4, mp: 4, ac: 11, dmg: 9, agi: 0, beh: 'pack', panic: .35, pack: true, toxicBite: 17 },
+    'Rot Swarm': { tier: 1, hp: 30, dr: 0, ap: 4, mp: 6, ac: 10, dmg: 6, agi: 2, beh: 'swarm', panic: .50, pack: true, swarm: true },
+    'Veil Stalker': { tier: 2, hp: 70, dr: 0, ap: 4, mp: 5, ac: 12, dmg: 20, agi: 1, beh: 'ambush', panic: .30, cloak: 14, bleedOn: 16 },
+    'Alpha Stalker': { tier: 3, hp: 100, dr: 0, ap: 5, mp: 5, ac: 13, dmg: 30, agi: 2, beh: 'ambush', panic: .20, cloak: 15, bleedOn: 13, ignore: .2 },
+    'Mind Weaver': { tier: 3, hp: 90, dr: 0, ap: 5, mp: 4, ac: 13, dmg: 35, agi: 2, beh: 'ranged', panic: .20, psi: 5 },
+    'Blight Brute': { tier: 4, hp: 120, dr: .40, ap: 4, mp: 3, ac: 14, dmg: 60, agi: -1, beh: 'berserk', panic: .10, berserk: true, slam: true },
+    'Dread Stalker': { tier: 4, hp: 155, dr: 0, ap: 6, mp: 6, ac: 14, dmg: 45, agi: 2, beh: 'leap', panic: 0, berserk: true, leapDC: 16 },
+    'Void Weaver': { tier: 5, hp: 170, dr: 0, ap: 6, mp: 5, ac: 15, dmg: 50, agi: 3, beh: 'ranged', panic: 0, cloak: 17, psi: 5, neural: 14 },
+};
+const DECKS = {
+    Raiders: [40, 30, 20, 8, 2, 0, 0], Outcasts: [30, 30, 20, 10, 7, 2, 1], Wanderers: [25, 30, 25, 12, 6, 1, 1],
+    Prospectors: [10, 25, 30, 20, 10, 4, 1], Garrison: [5, 20, 30, 25, 12, 6, 2], Sentinels: [5, 15, 30, 30, 12, 6, 2],
+    Liberators: [10, 20, 30, 25, 10, 4, 1], Contractors: [5, 10, 30, 30, 15, 7, 3], Obelisk: [0, 5, 20, 30, 25, 15, 5],
+    Cartel: [10, 25, 30, 20, 10, 4, 1], Ecologist: [15, 30, 25, 15, 10, 4, 1], IZC: [5, 15, 30, 30, 12, 6, 2],
+};
+
+// ===================== DATA: ZONES & MAPS (file 06 missing — improvised) =====================
+const ZONES = {
+    'The Perimeter': { tier: 1, hazard: 0, to: ['Toxic Marshes'], sub: 'Secret Cave Area', subDC: 14, foes: ['mutant', 'Raiders', 'Wanderers'], desc: 'Sagging razor wire, rusted watchtowers, and your fire by the fence.' },
+    'Secret Cave Area': { tier: 1, hazard: 1, to: ['The Perimeter'], indoor: true, isSub: true, foes: ['mutant'], desc: 'A limestone cave behind a collapsed culvert. Something glows deeper in.' },
+    'Toxic Marshes': { tier: 1, hazard: 0, to: ['The Perimeter', 'The Scrapyard'], foes: ['mutant', 'Raiders', 'Ecologist'], desc: 'Green water, dead reeds and the smell of rot.' },
+    'The Scrapyard': { tier: 2, hazard: 1, to: ['Toxic Marshes', 'Industrial Basin', 'Black Valley'], foes: ['Raiders', 'mutant', 'Wanderers', 'Prospectors'], desc: 'Mountains of irradiated vehicles. Raiders love it here.' },
+    'Industrial Basin': { tier: 2, hazard: 1, to: ['The Scrapyard'], sub: 'Secret Lab Alpha', subDC: 15, foes: ['Garrison', 'mutant', 'Raiders'], desc: 'Cooling towers and silent conveyor lines.' },
+    'Secret Lab Alpha': { tier: 2, hazard: 2, to: ['Industrial Basin'], indoor: true, isSub: true, lab: 'alpha', termDC: 13, foes: ['mutant', 'Cartel'], desc: 'Pre-incident research bunker. A terminal still hums.' },
+    'Black Valley': { tier: 2, hazard: 1, to: ['The Scrapyard', "Scavenger's Hub"], foes: ['Raiders', 'Liberators', 'mutant', 'Outcasts'], desc: 'A burned-out valley of charred pines.' },
+    "Scavenger's Hub": { tier: 3, hazard: 0, to: ['Black Valley', 'Ghost Town'], safe: true, indoor: true, desc: 'A container settlement. Joint Sentinel and trader stronghold.' },
+    'Ghost Town': { tier: 4, hazard: 3, to: ["Scavenger's Hub", 'Crimson Woods'], sub: 'Secret Lab Beta', subDC: 17, foes: ['mutant', 'Cartel', 'Contractors', 'Raiders'], desc: 'Empty high-rises. Laundry still hangs on the balconies.' },
+    'Secret Lab Beta': { tier: 4, hazard: 4, to: ['Ghost Town'], indoor: true, isSub: true, lab: 'beta', termDC: 15, foes: ['mutant', 'IZC'], desc: 'A genetics wing. The cages are open.' },
+    'Crimson Woods': { tier: 4, hazard: 3, to: ['Ghost Town', 'Quarry Basin'], foes: ['mutant', 'Liberators', 'Prospectors'], desc: 'Red-leafed trees that never drop their leaves.' },
+    'Quarry Basin': { tier: 5, hazard: 4, to: ['Crimson Woods', 'The Antenna Grid'], foes: ['mutant', 'Contractors', 'Obelisk'], desc: 'A strip-mine pit. Sound carries strangely here.' },
+    'The Antenna Grid': { tier: 5, hazard: 4, to: ['Quarry Basin', 'The Siege Ward'], sub: 'Secret Lab Gamma', subDC: 18, termDC: 16, foes: ['Obelisk', 'mutant', 'IZC'], desc: 'A forest of radar masts. The relay terminal is guarded like a relic.' },
+    'Secret Lab Gamma': { tier: 5, hazard: 5, to: ['The Antenna Grid'], indoor: true, isSub: true, lab: 'gamma', termDC: 17, foes: ['Obelisk', 'mutant'], desc: 'Psi-research vault. Your teeth ache.' },
+    'The Siege Ward': { tier: 6, hazard: 5, to: ['The Antenna Grid', 'The Reactor Core'], foes: ['Obelisk', 'Sentinels'], desc: 'Obelisk trenches facing the Sentinel line.' },
+    'The Reactor Core': { tier: 7, hazard: 6, to: ['The Siege Ward'], indoor: true, endgame: true, desc: 'The blast vault. Beyond it hums the Source.' },
+};
+const MAPS = {
+    'The Perimeter': ['...............', '..###.....###..', '..#.........#..', '...............', '..#.........#..', '..###.....###..', '...............'],
+    'Secret Cave Area': ['######...######', '###....!...S###', '#.............#', '......###......', '#.............#', '###.........###', '######...######'],
+    'Toxic Marshes': ['...C...........', '..###...C...#..', '..#.....!...#..', '...............', '..=.........=..', '....###...###..', '...............'],
+    'The Scrapyard': ['##..#...#...###', '#...#...#..D..#', '..C...=...C....', '...............', '...#.....#.....', '##.###.###.####', '...............'],
+    'Industrial Basin': ['...............', '..#===#...#===#', '..#...#...#...#', '..D...........D', '..#...#...#...#', '..#===#...#===#', '...............'],
+    'Secret Lab Alpha': ['########T######', '##...#...#...##', '##.C...C...C.##', '##...........##', '##.C...C...C.##', '##...#...#...##', '###############'],
+    'Black Valley': ['###############', '......C...=....', '..###...###....', '.....D.........', '....=...C......', '###############', '...............'],
+    'Ghost Town': ['...#...C...#...', '...#.......#...', '..D#...^...#D..', '...............', '..D#...^...#D..', '...#.......#...', '...#...C...#...'],
+    'Secret Lab Beta': ['###############', '##.C...#...CT##', '##.....D.....##', '##.C...#...C.##', '##.....D.....##', '##.C...#...C.##', '###############'],
+    'Crimson Woods': ['...#.......#...', '..#..C...C..#..', '....!.....!....', '.......^.......', '....!.....!....', '..#..C...C..#..', '...#.......#...'],
+    'Quarry Basin': ['^^^.........^^^', '^^...#...#...^^', '^...C.....C...^', '.......!.......', '^...=.....=...^', '^^...#...#...^^', '^^^.........^^^'],
+    'The Antenna Grid': ['..^....^....^..', '..#....T....#..', '.....C...C.....', '.......!.......', '.....C...C.....', '..#....#....#..', '..^....^....^..'],
+    'Secret Lab Gamma': ['###############', '##.....#.....##', '##.===.D.===.##', '##.....!....T##', '##.===.D.===.##', '##.....#.....##', '###############'],
+    'The Siege Ward': ['===D===.===D===', '...............', '###############', '.......^.......', '###############', '...............', '===D===.===D==='],
+    'The Reactor Core': ['^^^===^^^===^^^', '^.............^', '..C....!....C..', '...............', '..C....!....C..', '^.............^', '^^^===^^^===^^^'],
+};
+const TILE_CLS = { '#': 'c-wall', 'C': 'c-cover', '=': 'c-hard', '^': 'c-high', '~': 'c-rubble', 'D': 'c-door', 'T': 'c-term', 'S': 'c-term' };
+
+const RUMORS = [
+    'Stalker: "A hidden cave mouth lies somewhere along the Perimeter wire. Sharp eyes find it."',
+    'Scientist: "Three labs: Alpha under the Industrial Basin, Beta beneath Ghost Town, Gamma under the Antenna Grid."',
+    'Merc: "Hollow points shred mutants. Against armor, bring Armor Piercing."',
+    'Sentinel: "Never sit on the same sandbag twice. Professionals carry frags."',
+    'Hunter: "Dread Stalkers crouch before they leap. Watch for it and roll aside."',
+    'Trader: "The Reactor door only opens to all three data fragments. Obelisk holds the road there."',
+    'Hunter: "Veil Stalkers are invisible past four paces. Let them come close, or have sharp eyes."',
+    'Ecologist: "A Svarog detector sees anomalies before you step in them."',
+    'Drunk: "Something hums in the Antenna Grid relay terminal. Obelisk guard it like a relic."',
+    'Old-timer: "Anomaly shifts and emissions refill the fields with artifacts."',
+];
+
+const MILESTONES = [null,
+    [['Reached a Tier 2 zone', () => maxTier() >= 2], ['Completed 1 quest', () => S.w.prog.quests >= 1]],
+    [['Completed 3 quests', () => S.w.prog.quests >= 3], ['Killed a Tier 2 mutant or a Professional+ NPC', () => S.w.prog.mutTier >= 2 || S.w.prog.npcRank >= 2]],
+    [['Reached a Tier 3 zone', () => maxTier() >= 3], ['Cleared a hidden sub-node or finished an NPC storyline arc', () => S.w.prog.subCleared || S.w.prog.arcDone]],
+    [['Reached a Tier 4 zone', () => maxTier() >= 4], ['Killed a Tier 4 mutant', () => S.w.prog.mutTier >= 4], ['Finished an NPC storyline arc', () => S.w.prog.arcDone]],
+    [['Reached a Tier 5 zone', () => maxTier() >= 5], ['Main Story Act 3 done (all fragments)', () => allFrags()], ['Killed a Tier 5 mutant or a Legend NPC', () => S.w.prog.mutTier >= 5 || S.w.prog.npcRank >= 6]],
+    [['Main Story finale done', () => S.w.story.done]],
+];
+
+// Yefim's storyline arc (quest bank file 09 missing — improvised)
+const ARC = [
+    { title: 'Old Debts', desc: '"Prove you can handle yourself out there. Bring me two mutant trophies."', objs: [{ t: 'have', item: 'Mutant Trophy (T1)', need: 2 }], reward: { ru: 250, rep: 1 } },
+    { title: 'The Cave Stash', desc: '"Before the wire went up I hid a lockbox in a cave near the Perimeter. Find the way in and bring it back."', objs: [{ t: 'found', zone: 'Secret Cave Area' }, { t: 'item', item: "Yefim's Lockbox" }], reward: { ru: 500, rep: 1 } },
+    { title: "Yefim's Last Favor", desc: '"A Veil Stalker took my partner in the Scrapyard. I want it dead."', objs: [{ t: 'kill', name: 'Veil Stalker', zone: 'The Scrapyard', need: 1, have: 0 }], reward: { ru: 800, rep: 2, detector: 'Bear Detector' } },
+];
+
+// ===================== STATE =====================
+const SAVE_KEY = 'the_zone_v2';
+let S = null;     // persistent state (saved)
+let C = null;     // tactical state (never saved)
+let mode = 'create';
+let tab = 'camp';
+let meet = null;  // pending neutral encounter
+let H = [];       // click handlers for the current render
+let tick = 0;
+const FIRE = ['dead', 'smoldering', 'flickering', 'burning', 'roaring'];
+
+function freshState() {
+    const rep = {}; Object.keys(DECKS).forEach(f => rep[f] = 0);
+    return {
+        v: 2, loadout: 'Scavenger', startPerk: null,
+        p: {
+            name: 'Stalker', stats: { S: 10, P: 10, A: 10, I: 10 }, rank: 0, hp: 100, temp: 0, tempTurns: 0,
+            hunger: 10, thirst: 10, tired: 10, ru: 0, inv: {}, ammo: {}, weapons: [], eq: null, armor: null, spareArmor: [],
+            arts: [], belt: [], detector: null, backpack: null, perks: [], pendingPerks: 0,
+            st: { bleed: false, toxic: false, rad: false, arm: false, leg: false, prone: false, drain: 0 }, nid: 1,
+        },
+        w: {
+            day: 1, zone: 'The Perimeter', visited: ['The Perimeter'], found: [], rep,
+            goals: { Obelisk: 1, Contractors: 1, Raiders: 1, Sentinels: 1, Garrison: 0, Ecologist: 1 },
+            stock: { yefim: [], hub: [], mods: [] }, quests: [], avail: { yefim: [], hub: [] }, qn: 1, arc: 0,
+            story: { alpha: false, beta: false, gamma: false, done: false, ending: null }, terms: {}, emission: 0,
+            prog: { quests: 0, mutTier: 0, npcRank: -1, subCleared: false, arcDone: false },
+        },
+        c: { fire: 0, lit: false, shelter: false, yefim: false, scav: 0, scavAtLit: 0, area: 100 },
+    };
+}
+
+// ===================== HELPERS: PLAYER =====================
+const has = perk => S.p.perks.includes(perk);
+const count = item => S.p.inv[item] || 0;
+function addItem(i, n = 1) { S.p.inv[i] = count(i) + n; }
+function take(i, n = 1) { if (count(i) < n) return false; S.p.inv[i] -= n; if (!S.p.inv[i]) delete S.p.inv[i]; return true; }
+function addAmmo(cal, type, n) { S.p.ammo[cal] = S.p.ammo[cal] || {}; S.p.ammo[cal][type] = (S.p.ammo[cal][type] || 0) + n; }
+const ammoCount = (cal, type) => (S.p.ammo[cal] && S.p.ammo[cal][type]) || 0;
+function addWeapon(name, cond = 'Working') { const w = { id: S.p.nid++, name, cond, mag: 0, ammo: 'Standard', jammed: false }; S.p.weapons.push(w); return w; }
+const eqW = () => S.p.weapons.find(w => w.id === S.p.eq) || null;
+const eqWD = () => { const w = eqW(); return w ? WEAPONS[w.name] : null; };
+const maxTier = () => Math.max(...S.w.visited.map(z => ZONES[z].tier));
+const allFrags = () => S.w.story.alpha && S.w.story.beta && S.w.story.gamma;
+const starving = () => S.p.hunger <= 0.05 || S.p.thirst <= 0.05 || S.p.tired <= 0.05;
+function degrade(c) { return ['Working', 'Dirty', 'Damaged', 'Broken'][Math.min(3, ['Working', 'Dirty', 'Damaged', 'Broken'].indexOf(c) + 1)]; }
+const COND_F = { Working: 1, Dirty: .8, Damaged: .5, Broken: .25 };
+
+function D() {
+    const p = S.p, arm = p.armor ? ARMOR[p.armor.name] : null, mods = p.armor ? p.armor.mods : [];
+    const mSum = key => mods.reduce((s, m) => s + (MODS[m][key] || 0), 0);
+    const beltSlots = (arm ? arm.belt : 0) + (mods.includes('Artifact Pouch') ? 1 : 0);
+    const worn = p.belt.slice(0, beltSlots);
+    const fam = {}; let pen = 0;
+    worn.forEach(n => { const a = ARTS[n]; pen += a.pen; const f = a.fam || n; if (!fam[f] || ARTS[fam[f]].tier < a.tier) fam[f] = n; });
+    if (has('Artifact Handler')) pen /= 2;
+    const act = Object.values(fam).map(n => ARTS[n]);
+    const aSum = key => act.reduce((s, a) => s + (a[key] || 0), 0);
+    const condPen = p.armor ? ({ Damaged: .10, Broken: .25 }[p.armor.cond] || 0) : 0;
+    const physRaw = (arm ? arm.phys : 0) + mSum('phys') + aSum('phys') - condPen;
+    const anomRaw = (arm ? arm.anom : 0) + mSum('anom') + aSum('anomB') - condPen - pen;
+    let bleedDmg = 5; act.forEach(a => { if (a.bleed !== undefined) bleedDmg = Math.min(bleedDmg, a.bleed); });
+    const mp = (arm ? arm.mp : 4) + (p.rank >= 4 ? 1 : 0) + aSum('mp') + mSum('mp') + (has('Sprinter') ? 1 : 0);
+    const carry = (has('Pack Mule') ? 50 : 25) + (p.backpack ? BACKPACKS[p.backpack].carry : 0) + mSum('carry') + aSum('carry');
+    return {
+        arm, mods, beltSlots, worn, pen, physRaw, anomRaw, phys: clamp(physRaw, 0, .75), anom: clamp(anomRaw, 0, .75), bleedDmg,
+        regen: aSum('regen'), avoid: aSum('avoid'), ap: RANKS[p.rank].ap + aSum('ap'), mpBase: Math.max(1, mp), carry,
+        compass: act.some(a => a.compass), bypass: aSum('bypass'), killAp: act.some(a => a.killAp), maxHp: act.some(a => a.lucifer) ? 75 : 100,
+        noBleed: act.some(a => a.noBleed), noToxic: !!(arm && arm.noToxic), noProne: !!(arm && arm.noProne), noCrit: !!(arm && arm.noCrit),
+        halfDrain: !!(arm && arm.halfDrain), anomAdv: !!(arm && arm.anomAdv), det: p.detector ? DETECTORS[p.detector] : null,
+    };
+}
+function playerDR(kind, sub) {
+    const d0 = D(); let v = kind === 'phys' ? d0.physRaw : d0.anomRaw;
+    if (kind === 'phys' && sub === 'mutant' && d0.mods.includes('Treated Mutant Hide')) v += .15;
+    if (kind === 'anom') {
+        if (sub === 'Burner' && d0.mods.includes('Asbestos Coating')) v += .30;
+        if (sub === 'Electro' && d0.mods.includes('Faraday Mesh')) v += .30;
+        if (sub === 'psi' && d0.mods.includes('Psi-Stimulator Earpiece')) v += .20;
+    }
+    return clamp(v, 0, .75);
+}
+const playerBaseAC = () => Math.max(10, 10 + RANKS[S.p.rank].mod);
+function weight() {
+    const p = S.p; let w = 0;
+    for (const i in p.inv) w += (ITEMS[i] ? ITEMS[i].w : 0) * p.inv[i];
+    for (const cal in p.ammo) for (const t in p.ammo[cal]) w += p.ammo[cal][t] * 0.02;
+    p.weapons.forEach(x => { w += WEAPONS[x.name].weight; });
+    if (p.armor) w += ARMOR[p.armor.name].weight;
+    p.spareArmor.forEach(a => { w += ARMOR[a.name].weight; });
+    [...p.arts, ...p.belt].forEach(n => { w += ARTS[n].legend ? .8 : .5; });
+    return Math.round(w * 10) / 10;
+}
+function drainSurvival(h, t, r) { const p = S.p; p.hunger = Math.max(0, p.hunger - h); p.thirst = Math.max(0, p.thirst - t); p.tired = Math.max(0, p.tired - r); }
+function autoEat() {
+    const p = S.p;
+    if (count('MRE') > 0 && (p.hunger <= 6 || p.thirst <= 6)) { take('MRE'); p.hunger = Math.min(10, p.hunger + 2); p.thirst = Math.min(10, p.thirst + 2); log('You eat an MRE on the march (+2 Hunger, +2 Thirst).'); }
+}
+function clampHp() { S.p.hp = Math.min(S.p.hp, D().maxHp); }
+function topOffAll() {
+    S.p.weapons.forEach(w => {
+        const wd = WEAPONS[w.name]; if (!wd.cal) return;
+        const need = wd.cap - w.mag, have = ammoCount(wd.cal, w.ammo), n = Math.min(need, have);
+        if (n > 0) { w.mag += n; S.p.ammo[wd.cal][w.ammo] -= n; }
+    });
+}
+function addDrain(n) { if (D().halfDrain) n = Math.ceil(n / 2); S.p.st.drain += n; }
+function hurtOutside(dmg, msg) { S.p.hp -= dmg; if (msg) log(msg, 'alert'); if (S.p.hp <= 0) { die(); return true; } return false; }
+function die() {
+    S.p.hp = 0; mode = 'dead'; C = null; meet = null;
+    log('VITAL SIGNS TERMINATED. YOU HAVE DIED IN THE ZONE.', 'alert');
+}
+function roll(adv = 0) {
+    const a = d(20); if (!adv) return { die: a, txt: String(a) };
+    const b = d(20), die = adv > 0 ? Math.max(a, b) : Math.min(a, b);
+    return { die, txt: `${die} [${adv > 0 ? 'adv' : 'dis'} ${a}/${b}]` };
+}
+
+// ===================== RANKS & PERKS =====================
+function checkRank() {
+    const p = S.p;
+    while (p.rank < 6 && MILESTONES[p.rank + 1].every(([, f]) => f())) {
+        p.rank++;
+        const R = RANKS[p.rank];
+        log(`PROMOTION: ${R.name}! (${MILESTONES[p.rank].map(m => m[0]).join('; ')}) — AP ${R.ap}, rank mod ${sgn(R.mod)}.`, 'gold');
+        if (PERK_RANKS.includes(p.rank)) { p.pendingPerks++; log('A new perk is available.', 'gold'); }
+    }
+}
+function selectPerk(name) { S.p.perks.push(name); S.p.pendingPerks--; log(`Perk acquired: ${name}.`, 'gold'); }
+
+// ===================== LOG / SAVE =====================
+function log(msg, cls = '') {
+    const box = $('log-content'), el = document.createElement('div');
+    el.className = 'log-entry log-new ' + cls; el.textContent = msg;
+    box.prepend(el);
+    while (box.children.length > 250) box.lastChild.remove();
+}
+function freshLog() { document.querySelectorAll('.log-new').forEach(x => x.classList.remove('log-new')); }
+function saveGame(quiet) {
+    if (mode !== 'world') { if (!quiet) log('You can only save while out of combat.', 'alert'); return; }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); if (!quiet) log('Progress saved.'); }
+    catch (e) { if (!quiet) log('Save failed: browser storage unavailable.', 'alert'); }
+}
+function loadGame() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
+    if (!raw) { log('No save file found.', 'alert'); render(); return false; }
+    try {
+        const data = JSON.parse(raw);
+        if (data.v !== 2) throw new Error('version');
+        S = data; C = null; meet = null; mode = 'world';
+        tab = S.w.zone === 'The Perimeter' ? 'camp' : (S.w.zone === "Scavenger's Hub" ? 'hub' : 'zone');
+        log('Save loaded.');
+        render(); return true;
+    } catch (e) { log('Save file is corrupted or from an older version.', 'alert'); render(); return false; }
+}
+function wipeSave(skipConfirm) {
+    if (!skipConfirm && !confirm('Erase your save and create a new stalker?')) return;
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
+    S = freshState(); C = null; meet = null; mode = 'create';
+    render();
+}
+function toggleTheme() { document.body.classList.toggle('minimalist'); }
+
+// ===================== CHARACTER CREATION =====================
+function startGame() {
+    const p = S.p, L = LOADOUTS[S.loadout];
+    if (!p.name.trim()) p.name = 'Stalker';
+    L.weapons.forEach(([n, rds]) => { addWeapon(n); if (rds) addAmmo(WEAPONS[n].cal, 'Standard', rds); });
+    p.armor = { name: L.armor, cond: 'Working', mods: [] };
+    if (L.backpack) p.backpack = L.backpack;
+    Object.entries(L.items).forEach(([n, c]) => addItem(n, c));
+    p.ru = L.ru; p.perks = [S.startPerk];
+    p.eq = (p.weapons.find(w => WEAPONS[w.name].cat !== 'melee') || p.weapons[0]).id;
+    topOffAll(); rollStock(); refreshQuests();
+    mode = 'world'; tab = 'camp';
+    log('THE PERIMETER. Sagging razor wire, rusted watchtowers. The fire is dead. You need wood.');
+    saveGame(true);
+}
+
+// ===================== CAMP (A Dark Room loop) =====================
+function scavenge() {
+    const c = S.c; c.scav++;
+    drainSurvival(.1, .1, .05);
+    if (c.area <= 0) log('The fence-line is picked clean. Give it time, or go deeper into the Zone.', 'warn');
+    else {
+        const r = Math.random();
+        if (r < .5) { addItem('Wood', 2); c.area -= 2; log(pick(['Dry branches snapped from a dead birch (+2 Wood).', 'Splintered pallet wood from a collapsed checkpoint (+2 Wood).'])); }
+        else if (r < .75) { addItem('Scrap Metal'); c.area -= 4; log('Pried scrap metal off a rusted APC (+1 Scrap).'); }
+        else if (r < .87) { const ru = 5 + d(15); S.p.ru += ru; c.area -= 3; log(`${ru} Ru in the pocket of an abandoned uniform.`); }
+        else if (r < .93) { addItem('MRE'); c.area -= 3; log('An unopened MRE in a ditch. Lucky.'); }
+        else if (r < .96) { addItem('Bandage'); c.area -= 3; log('A sealed field dressing in a burst first-aid box.'); }
+        else log('Nothing but weeds and broken glass.');
+    }
+    if (c.lit && !c.yefim && c.scav - c.scavAtLit >= 4) {
+        c.yefim = true;
+        log('A grizzled veteran in an old trenchcoat walks up to your fire. "Name is Old Man Yefim. You look like you need supplies. Let\'s do business."', 'gold');
+    }
+    tickEmission();
+}
+function lightFire() {
+    if (!take('Wood', 5)) return;
+    const c = S.c; c.fire = 3;
+    if (!c.lit) { c.lit = true; c.scavAtLit = c.scav; log('The fire is burning. Past the wire, the Zone waits. (Zone tab unlocked.)', 'gold'); }
+    else log('The fire catches again.');
+}
+function stoke() { if (S.c.fire >= 4 || !take('Wood')) return; S.c.fire++; log(`You feed the fire. It is ${FIRE[S.c.fire]}.`); }
+function buildShelter() { if (!take('Wood', 15)) return; S.c.shelter = true; log('A lean-to shelter stands beside the fire. You can sleep here now.', 'good'); }
+function sleepCamp() {
+    if (S.w.emission) return log('The sky is screaming. No one sleeps through an emission.', 'alert');
+    const p = S.p; p.hp = Math.min(D().maxHp, p.hp + 30); p.tired = 10; drainSurvival(1.5, 1.5, 0);
+    log('You sleep in the lean-to (+30 HP, Tiredness restored).');
+    newDay(); autoEat(); saveGame(true);
+}
+
+// ===================== LIVING WORLD (file 10 missing — improvised) =====================
+function newDay() {
+    const w = S.w; w.day++;
+    log(`— Dawn of day ${w.day} —`, 'day');
+    const f = pick(Object.keys(w.goals)); w.goals[f]++;
+    if (w.goals[f] >= 6) { log(`${f} complete a major operation. Rumors of it spread through every camp.`, 'day'); w.goals[f] = 0; }
+    else log(`Faction movement: ${f} operations advance (${w.goals[f]}/6).`);
+    const r = d(20);
+    if (r >= 19) {
+        const Z = ZONES[w.zone];
+        if (Z.indoor || Z.safe) log('An emission rolls over the Zone. You sit it out behind concrete.', 'warn');
+        else { w.emission = 3; log('EMISSION ALARM — the sky bleeds red! Reach indoor shelter within 3 moves!', 'alert'); }
+    } else if (r >= 15) log('Anomaly shift: the fields rearrange themselves. Fresh artifacts wait.');
+    else if (r >= 9) log('A caravan reached the traders. New stock on the shelves.');
+    else log('A quiet day in the Exclusion Zone.');
+    rollStock(); refreshQuests();
+}
+function tickEmission() {
+    const w = S.w; if (!w.emission) return false;
+    const Z = ZONES[w.zone];
+    if (Z.indoor || Z.safe) { w.emission = 0; log('You reach shelter. The emission howls past the walls and fades.', 'good'); return false; }
+    w.emission--;
+    if (w.emission > 0) { log(`The emission builds... ${w.emission} move(s) left to find shelter!`, 'alert'); return false; }
+    const dmg = Math.max(1, Math.ceil(60 * (1 - playerDR('anom'))));
+    S.p.st.rad = true;
+    return hurtOutside(dmg, `CAUGHT IN THE OPEN: the emission tears through you for ${dmg} damage. You are Irradiated.`);
+}
+
+// ===================== TRAVEL & EXPLORATION =====================
+function travel(dest) {
+    const Z = ZONES[dest];
+    if (Z.endgame && !allFrags()) return log('The blast vault lock needs all three data fragments.', 'alert');
+    drainSurvival(1.5, 1.5, 1); autoEat();
+    if (starving()) log('You are STARVING or exhausted: weapon actions cost +1 AP.', 'alert');
+    if (S.p.st.rad && hurtOutside(5, 'Radiation sickness gnaws at you on the march (−5 HP).')) return;
+    S.w.zone = dest;
+    if (!S.w.visited.includes(dest)) S.w.visited.push(dest);
+    log(`Traveled to ${dest}. ${Z.desc}`);
+    checkRank();
+    if (tickEmission()) return;
+    if (Z.safe) { tab = 'hub'; saveGame(true); return; }
+    tab = dest === 'The Perimeter' ? 'camp' : 'zone';
+    const enc = rollEncounter(dest);
+    if (enc) beginEncounter(enc, 'travel'); else log('You arrive without incident.');
+    if (mode === 'world') saveGame(true);
+}
+function explore() {
+    const z = S.w.zone;
+    drainSurvival(.5, .5, .5);
+    if (tickEmission()) return;
+    const enc = rollEncounter(z);
+    if (enc) beginEncounter(enc, 'explore');
+    else enterTactical(z, []);
+}
+function searchHidden() {
+    const Z = ZONES[S.w.zone], r = d(20), m = statMod(S.p.stats.P), tot = r + m;
+    drainSurvival(.2, .2, .3);
+    if (tot >= Z.subDC) { S.w.found.push(Z.sub); log(`Perception ${r}${sgn(m)} = ${tot} vs DC ${Z.subDC}: you find a hidden way into ${Z.sub}!`, 'gold'); }
+    else log(`Perception ${r}${sgn(m)} = ${tot} vs DC ${Z.subDC}: nothing but rubble and rust.`);
+}
+const encChance = Z => Z.hazard >= 4 ? 100 : Math.round((Z.hazard * .15 + Z.tier * .05) * 100);
+function questTarget(zone) {
+    for (const q of S.w.quests) for (const o of q.objs) if (o.t === 'kill' && o.zone === zone && o.have < o.need) return o;
+    return null;
+}
+function hostileFaction(f) {
+    if (f === 'Raiders') return true;
+    if (f === 'Obelisk') return S.w.story.ending !== 'Obelisk';
+    return S.w.rep[f] <= -3;
+}
+function rollEncounter(zone) {
+    const Z = ZONES[zone]; if (Z.safe) return null;
+    if (Z.endgame) return S.w.story.done ? squad('Obelisk', Z.tier) : bossSquad();
+    let chance = Z.hazard * .15 + Z.tier * .05;
+    const q = questTarget(zone);
+    if (q) chance = Math.max(chance, .6);
+    if (Z.hazard < 4 && Math.random() >= chance) return null;
+    if (q && Math.random() < .7) return q.name ? mutantGroup(Z.tier, q.name) : squad(q.faction, Z.tier);
+    const foe = pick(Z.foes);
+    return foe === 'mutant' ? mutantGroup(Z.tier) : squad(foe, Z.tier);
+}
+function mutantGroup(tier, name) {
+    if (!name) {
+        const lo = Math.max(1, Math.min(tier, 5) - 2);
+        name = pick(Object.keys(MUTANTS).filter(n => MUTANTS[n].tier <= tier && MUTANTS[n].tier >= lo));
+    }
+    const m = MUTANTS[name];
+    const n = m.swarm ? 3 + (Math.random() < .4 ? 1 : 0) : m.pack ? 2 + (Math.random() < .4 ? 1 : 0) : 1;
+    const units = Array.from({ length: n }, () => mkMutant(name));
+    if (m.tier >= 3 && Math.random() < .3) units.push(mkMutant(pick(['Blind Maw', 'Flesh Stalker'])));
+    return { faction: 'mutant', units, hostile: true };
+}
+function mkMutant(name) { const m = MUTANTS[name]; return { kind: 'mutant', name, m, tier: m.tier, hp: m.hp, maxHp: m.hp, ac: m.ac, ap: m.ap, mp: m.mp, cloaked: !!m.cloak, alive: true }; }
+function roleFor(wd) { return ['assault', 'heavy', 'sniper'].includes(wd.cat) ? 'Anchor' : ['shotgun', 'smg'].includes(wd.cat) ? 'Rusher' : 'Flanker'; }
+function mkHuman(faction, tier, rank) {
+    if (rank === undefined) {
+        const wts = {}; DECKS[faction].forEach((v, i) => { if (v && i <= Math.min(6, tier + 1)) wts[i] = v; });
+        rank = Object.keys(wts).length ? +wpick(wts) : 0;
+    }
+    const gt = [1, 1, 2, 3, 4, 4, 5][rank];
+    const wd = pick(Object.values(WEAPONS).filter(w => !w.lootOnly && w.cat !== 'melee' && w.tier === gt && (w.cat !== 'heavy' || rank >= 3)));
+    let apool = Object.values(ARMOR).filter(a => a.tier === gt && (faction === 'Obelisk') === a.name.includes('Obelisk'));
+    if (!apool.length) apool = Object.values(ARMOR).filter(a => a.tier === gt);
+    const armor = pick(apool), R = RANKS[rank];
+    const g = { frag: rank >= 2 ? 1 : 0, smoke: 0, flash: 0 };
+    if (rank >= 2 && ['Garrison', 'Sentinels', 'Contractors', 'IZC', 'Obelisk'].includes(faction)) g[d(6) <= 3 ? 'smoke' : 'flash'] = 1;
+    return {
+        kind: 'human', name: `${faction} ${R.name}`, faction, rank, hp: 100, maxHp: 100, ac: Math.max(10, 10 + R.mod), apMax: R.ap,
+        mpMax: armor.mp + (rank >= 4 ? 1 : 0), weapon: { name: wd.name, cond: 'Working', mag: wd.cap, jammed: false },
+        armor: { name: armor.name, cond: 'Working' }, role: roleFor(wd), morale: 'Steady', wounds: {}, grenades: g, alive: true,
+    };
+}
+function squad(faction, tier) {
+    const n = tier <= 1 ? 1 + (Math.random() < .5 ? 1 : 0) : tier === 2 ? 2 : tier <= 4 ? 2 + (Math.random() < .5 ? 1 : 0) : 3 + (Math.random() < .5 ? 1 : 0);
+    const units = Array.from({ length: n }, () => mkHuman(faction, tier));
+    if (units.length >= 2) units.reduce((a, b) => (b.rank > a.rank ? b : a)).role = 'Leader';
+    return { faction, units, hostile: hostileFaction(faction) };
+}
+function bossSquad() {
+    const boss = mkHuman('Obelisk', 7, 6);
+    Object.assign(boss, { name: 'Obelisk Arch-Zealot', hp: 150, maxHp: 150, boss: true, role: 'Leader', weapon: { name: 'FT-200M (F2000)', cond: 'Working', mag: 30, jammed: false }, armor: { name: 'Obelisk Exoskeleton', cond: 'Working' } });
+    return { faction: 'Obelisk', units: [boss, mkHuman('Obelisk', 5, 3), mkHuman('Obelisk', 5, 3)], hostile: true };
+}
+function beginEncounter(enc, via) {
+    if (enc.hostile) { enterTactical(S.w.zone, enc.units); return; }
+    meet = { enc, via };
+    tab = 'zone';
+    log(`You cross paths with a ${enc.faction} patrol (${enc.units.length}). They watch you, weapons low.`, 'warn');
+}
+function resolveMeet(attack) {
+    const { enc, via } = meet; meet = null;
+    if (attack) {
+        S.w.rep[enc.faction] -= 1;
+        log(`You open fire on the ${enc.faction}! (${enc.faction} rep ${S.w.rep[enc.faction]})`, 'alert');
+        enterTactical(S.w.zone, enc.units);
+    } else {
+        log(`The ${enc.faction} patrol moves on.`);
+        if (via === 'explore') enterTactical(S.w.zone, []);
+    }
+}
+
+// ===================== HUB & TRADE =====================
+function pay(n) { if (S.p.ru < n) { log(`Insufficient Ru (need ${n}).`, 'alert'); return false; } S.p.ru -= n; return true; }
+function restAtHub() {
+    if (!pay(50)) return;
+    S.p.hp = D().maxHp; S.p.tired = 10;
+    log('You rent a secure cot at the Rusty Anchor and sleep like the dead (full HP, Tiredness restored).', 'good');
+    newDay(); saveGame(true);
+}
+function buyDrink() { if (!pay(20)) return; log(pick(RUMORS)); }
+const WPRICE = [0, 400, 1200, 3000, 6500, 13000], CATM = { melee: .5, sidearm: .6, smg: .8, shotgun: .85, assault: 1, sniper: 1.15, heavy: 1.3 };
+const APRICE = [0, 500, 1600, 3800, 7500, 15000], ARTPRICE = [0, 1200, 2500, 5000, 8000, 14000];
+function basePrice(it) {
+    switch (it.kind) {
+        case 'weapon': { const w = WEAPONS[it.name]; return Math.round(WPRICE[w.tier] * CATM[w.cat] / 10) * 10; }
+        case 'armor': return APRICE[ARMOR[it.name].tier];
+        case 'art': return ARTPRICE[ARTS[it.name].tier];
+        case 'detector': return DETECTORS[it.name].price;
+        case 'backpack': return BACKPACKS[it.name].price;
+        case 'mod': return MODS[it.name].price;
+        default: return ITEMS[it.name].price;
+    }
+}
+const TRADER_FAC = { yefim: 'Wanderers', hub: 'Sentinels' };
+function priceMod(board) {
+    if (board === 'yefim' && S.w.prog.arcDone) return .85;
+    const r = S.w.rep[TRADER_FAC[board]];
+    return r >= 3 ? .85 : 1;
+}
+function stockLabel(it) {
+    if (it.kind === 'weapon') { const w = WEAPONS[it.name]; return `${it.name} (${CAT[w.cat].label}, ${w.dmg} dmg, rng ${w.range}, ${w.weight}kg, T${w.tier})`; }
+    if (it.kind === 'armor') { const a = ARMOR[it.name]; return `${it.name} (Phys ${pct(a.phys)} / Anom ${pct(a.anom)}, ${a.belt} belt, ${a.slots} mod, MP ${a.mp}, ${a.weight}kg)`; }
+    if (it.kind === 'art') return `${it.name} — ${artDesc(it.name)}`;
+    if (it.kind === 'detector') return `${it.name} (+${DETECTORS[it.name].bonus} avoidance${DETECTORS[it.name].reveal ? ', reveals anomalies' : ''})`;
+    if (it.kind === 'backpack') return `${it.name} (+${BACKPACKS[it.name].carry}kg)`;
+    if (it.kind === 'mod') return `${it.name} (${MODS[it.name].desc})`;
+    const I = ITEMS[it.name]; return `${it.name}${I.heal ? ` (+${I.heal} HP)` : I.temp ? ` (+${I.temp} temp HP)` : ''}`;
+}
+function grant(it) {
+    const p = S.p;
+    if (it.kind === 'weapon') addWeapon(it.name, it.cond || 'Working');
+    else if (it.kind === 'armor') { const a = { name: it.name, cond: it.cond || 'Working', mods: [] }; if (!p.armor) p.armor = a; else p.spareArmor.push(a); }
+    else if (it.kind === 'art') p.arts.push(it.name);
+    else if (it.kind === 'detector') p.detector = it.name;
+    else if (it.kind === 'backpack') p.backpack = it.name;
+    else addItem(it.name, it.n || 1);
+}
+function buyStock(board, i, price) {
+    const it = S.w.stock[board][i];
+    if (!pay(price)) return;
+    grant(it); S.w.stock[board].splice(i, 1);
+    log(`Bought ${it.name} for ${price} Ru.`);
+}
+function buyAmmo(cal, cat, type, price) { if (!pay(price)) return; addAmmo(cal, type, CAT[cat].box); topOffAll(); log(`Bought a box of ${type} ${cal} (${CAT[cat].box} rds).`); }
+function rollStock() {
+    const pool = cap => {
+        const g = { weapon: [], armor: [], art: [], detector: [], item: [], backpack: [] };
+        Object.values(WEAPONS).forEach(w => { if (!w.lootOnly && w.tier <= cap) g.weapon.push({ kind: 'weapon', name: w.name }); });
+        Object.values(ARMOR).forEach(a => { if (!a.name.includes('Obelisk') && a.tier <= cap) g.armor.push({ kind: 'armor', name: a.name }); });
+        Object.keys(ARTS).forEach(n => { if (!ARTS[n].legend && ARTS[n].tier <= cap) g.art.push({ kind: 'art', name: n }); });
+        Object.keys(DETECTORS).forEach(n => { if (DETECTORS[n].bonus <= cap) g.detector.push({ kind: 'detector', name: n }); });
+        ['Military Medkit', 'Scientific Medkit', 'Combat Stimpak'].forEach(n => g.item.push({ kind: 'item', name: n }));
+        if (cap >= 3) g.backpack.push({ kind: 'backpack', name: 'Tourist Frame' });
+        return g;
+    };
+    const pickN = (cap, n) => {
+        const g = pool(cap), out = [], wts = { weapon: 4, armor: 3, art: 2, detector: 1, item: 2, backpack: 1 };
+        while (out.length < n) {
+            const avail = {}; for (const key in wts) if (g[key].length) avail[key] = wts[key];
+            if (!Object.keys(avail).length) break;
+            const kind = wpick(avail); out.push(g[kind].splice(Math.floor(Math.random() * g[kind].length), 1)[0]);
+        }
+        return out;
+    };
+    S.w.stock.yefim = pickN(2, 5);
+    S.w.stock.hub = pickN(4, 9);
+    S.w.stock.mods = shuffle(Object.keys(MODS)).slice(0, 4);
+}
+function sellValue(kind, name, cond) {
+    if (kind === 'item') return ITEMS[name].sell ?? Math.round((ITEMS[name].price || 0) * .4);
+    if (kind === 'art') return Math.round(ARTPRICE[ARTS[name].tier] * .5);
+    return Math.round(basePrice({ kind, name }) * .4 * COND_F[cond || 'Working']);
+}
+function sellItem(name) { if (!take(name)) return; const v = sellValue('item', name); S.p.ru += v; log(`Sold ${name} for ${v} Ru.`); }
+function sellWeapon(id) {
+    const p = S.p, w = p.weapons.find(x => x.id === id); if (!w || w.id === p.eq) return;
+    const wd = WEAPONS[w.name]; if (wd.cal && w.mag) addAmmo(wd.cal, w.ammo, w.mag);
+    const v = sellValue('weapon', w.name, w.cond); p.ru += v; p.weapons = p.weapons.filter(x => x !== w); log(`Sold ${w.name} (${w.cond}) for ${v} Ru.`);
+}
+function sellArmor(i) { const a = S.p.spareArmor[i]; const v = sellValue('armor', a.name, a.cond); S.p.ru += v; S.p.spareArmor.splice(i, 1); log(`Sold ${a.name} (${a.cond}) for ${v} Ru.`); }
+function sellArt(i) { const n = S.p.arts[i]; if (ARTS[n].legend) return; const v = sellValue('art', n); S.p.ru += v; S.p.arts.splice(i, 1); log(`Sold ${n} for ${v} Ru.`); }
+const repairCost = (tier, cond) => ['Working', 'Dirty', 'Damaged', 'Broken'].indexOf(cond) * 60 * tier;
+function techRepair(obj, tier) {
+    const cost = repairCost(tier, obj.cond); if (!cost || !pay(cost)) return;
+    obj.cond = 'Working'; obj.jammed = false; log(`The technician restores ${obj.name} to Working (${cost} Ru).`, 'good');
+}
+function installMod(i) {
+    const p = S.p, mod = S.w.stock.mods[i], a = p.armor;
+    if (!a) return log('Wear armor first.', 'alert');
+    if (a.mods.includes(mod) || a.mods.length >= ARMOR[a.name].slots) return log('No free mod slot for that.', 'alert');
+    if (!pay(MODS[mod].price)) return;
+    a.mods.push(mod); S.w.stock.mods.splice(i, 1);
+    log(`Technician fits ${mod} onto your ${a.name}.`, 'good');
+}
+
+// ===================== GEAR MANAGEMENT =====================
+function equipWeapon(id) {
+    if (mode === 'combat') {
+        const to = S.p.weapons.find(w => w.id === id), cost = swapCost(to);
+        if (!actOK(cost)) return;
+        C.ap -= cost;
+    }
+    S.p.eq = id; log(`Equipped ${eqW().name}.`);
+}
+function cycleAmmo(w) {
+    const wd = WEAPONS[w.name]; if (!wd.cal) return;
+    const types = Object.keys(AMMO), opts = types.filter(t => t === w.ammo || ammoCount(wd.cal, t) > 0);
+    if (opts.length < 2) return log(`No other ammo types for ${wd.cal}.`, 'warn');
+    const next = opts[(opts.indexOf(w.ammo) + 1) % opts.length];
+    if (w.mag) addAmmo(wd.cal, w.ammo, w.mag);
+    w.mag = 0; w.ammo = next;
+    if (mode === 'combat') log(`Switched to ${next} — reload to chamber it.`);
+    else { topOffAll(); log(`${w.name} now loaded with ${next}.`); }
+}
+function wearArmor(i) {
+    const p = S.p, a = p.spareArmor.splice(i, 1)[0];
+    if (p.armor) p.spareArmor.push(p.armor);
+    p.armor = a;
+    const slots = D().beltSlots;
+    while (p.belt.length > slots) p.arts.push(p.belt.pop());
+    log(`You change into the ${a.name}.`);
+}
+function wearArt(i) { const p = S.p; if (p.belt.length >= D().beltSlots) return log('No free belt slot.', 'alert'); p.belt.push(p.arts.splice(i, 1)[0]); clampHp(); }
+function removeArt(i) { const p = S.p; p.arts.push(p.belt.splice(i, 1)[0]); }
+function useRepairKit(obj) {
+    if (mode === 'combat') return log('Field repairs only out of combat.', 'warn');
+    if (obj.cond !== 'Damaged' && obj.cond !== 'Broken') return log('A field kit only restores Damaged or Broken gear, never above Dirty.', 'warn');
+    if (!take('Field Repair Kit')) return;
+    obj.cond = obj.cond === 'Broken' ? 'Damaged' : 'Dirty'; obj.jammed = false;
+    log(`Patched ${obj.name} (now ${obj.cond}).`);
+}
+function applyItem(name) {
+    const p = S.p, it = ITEMS[name], medic = has('Combat Medic') ? 10 : 0;
+    if (it.heal) { p.hp = Math.min(D().maxHp, p.hp + it.heal + medic); if (it.cureRad) p.st.rad = false; log(`${name}: +${it.heal + medic} HP.`, 'good'); }
+    else if (it.temp) { p.temp = it.temp + medic; p.tempTurns = 4; log(`${name}: +${p.temp} temporary HP for 4 turns.`, 'good'); }
+    else if (name === 'Bandage') {
+        p.st.bleed = false; p.st.toxic = false;
+        const w = p.st.arm ? 'arm' : p.st.leg ? 'leg' : null; if (w) p.st[w] = false;
+        p.hp = Math.min(D().maxHp, p.hp + 5 + medic);
+        log(`Bandage applied: bleeding stopped${w ? `, ${w} wound dressed` : ''}.`, 'good');
+    }
+    else if (name === 'MRE') { p.hunger = Math.min(10, p.hunger + 2); p.thirst = Math.min(10, p.thirst + 2); log('MRE: +2 Hunger, +2 Thirst.'); }
+    else if (name === 'Antirad Pill') { p.st.rad = false; log('Antirad: radiation purged.', 'good'); }
+}
+function useItem(name) {
+    if (mode === 'combat') { if (!actOK(2)) return; if (!take(name)) return; C.ap -= 2; applyItem(name); return; }
+    if (ITEMS[name].temp) return log('Stimpaks only matter in a fight.', 'warn');
+    if (take(name)) applyItem(name);
+}
+
+// ===================== QUESTS =====================
+function genQuest(board) {
+    const [lo, hi] = board === 'yefim' ? [1, 2] : [2, 5];
+    const giver = board === 'yefim' ? 'Wanderers' : pick(['Sentinels', 'Liberators', 'Contractors', 'Ecologist', 'Garrison', 'IZC']);
+    const zone = pick(Object.keys(ZONES).filter(z => { const Z = ZONES[z]; return !Z.safe && !Z.endgame && !Z.isSub && Z.tier >= lo && Z.tier <= hi; }));
+    const Z = ZONES[zone], id = 'q' + S.w.qn++;
+    const base = { id, board, giver, zone };
+    const type = pick(['mutant', 'mutant', 'squad', 'deliver', 'artifact']);
+    if (type === 'squad') {
+        const fs = Z.foes.filter(f => f !== 'mutant' && f !== giver && ['Raiders', 'Obelisk', 'Outcasts', 'Cartel'].includes(f));
+        if (fs.length) {
+            const f = pick(fs);
+            return { ...base, title: `Eliminate the ${f} in ${zone}`, desc: `${f} have been hitting ${giver} supply runs.`, objs: [{ t: 'kill', faction: f, zone, need: 2, have: 0 }], reward: { ru: 300 * Z.tier, rep: 1 } };
+        }
+    }
+    if (type === 'deliver') {
+        const t = Math.min(Z.tier, 4), item = `Mutant Trophy (T${t})`;
+        return { ...base, title: `Field samples (T${t})`, desc: `${giver} researchers want fresh tissue.`, objs: [{ t: 'have', item, need: 2 }], reward: { ru: ITEMS[item].sell * 4, rep: 1 } };
+    }
+    if (type === 'artifact') {
+        const t = Math.min(Z.tier, 3);
+        return { ...base, title: `Artifact procurement (T${t}+)`, desc: `${giver} need an artifact for study. No questions asked.`, objs: [{ t: 'artifact', minTier: t }], reward: { ru: Math.round(ARTPRICE[t] * .75), rep: 1 } };
+    }
+    const pool = Object.keys(MUTANTS).filter(n => MUTANTS[n].tier <= Z.tier && MUTANTS[n].tier >= Math.max(1, Z.tier - 2));
+    const name = pick(pool), M = MUTANTS[name], need = M.pack ? 2 : 1;
+    return { ...base, title: `Cull: ${name}`, desc: `A ${name} is stalking the ${zone}. ${giver} want it gone.`, objs: [{ t: 'kill', name, zone, need, have: 0 }], reward: { ru: 120 + 180 * M.tier * need, rep: 1 } };
+}
+function refreshQuests() { S.w.avail.yefim = [genQuest('yefim'), genQuest('yefim')]; S.w.avail.hub = [genQuest('hub'), genQuest('hub'), genQuest('hub')]; }
+function arcQuest() {
+    const a = ARC[S.w.arc]; if (!a) return null;
+    return { id: 'arc' + S.w.arc, board: 'yefim', giver: 'Wanderers', arc: true, title: `${a.title} (Yefim)`, desc: a.desc, objs: a.objs.map(o => ({ ...o })), reward: { ...a.reward } };
+}
+function acceptQuest(q, board) {
+    if (S.w.quests.length >= 5) return log('You already carry five contracts.', 'warn');
+    S.w.quests.push(q);
+    if (!q.arc) S.w.avail[board] = S.w.avail[board].filter(x => x.id !== q.id);
+    log(`Contract accepted: ${q.title}.`);
+}
+function objDone(o) {
+    if (o.t === 'kill') return o.have >= o.need;
+    if (o.t === 'have') return count(o.item) >= o.need;
+    if (o.t === 'item') return count(o.item) >= 1;
+    if (o.t === 'found') return S.w.found.includes(o.zone);
+    if (o.t === 'artifact') return S.p.arts.some(n => !ARTS[n].legend && ARTS[n].tier >= o.minTier);
+    return false;
+}
+function objText(o) {
+    if (o.t === 'kill') return `Kill ${o.need} ${o.name || o.faction} in ${o.zone} (${Math.min(o.have, o.need)}/${o.need})`;
+    if (o.t === 'have') return `Deliver ${o.need}× ${o.item} (${Math.min(count(o.item), o.need)}/${o.need})`;
+    if (o.t === 'item') return `Recover ${o.item}`;
+    if (o.t === 'found') return `Find the hidden entry to ${o.zone}`;
+    if (o.t === 'artifact') return `Hand over a Tier ${o.minTier}+ artifact (not worn)`;
+    return '';
+}
+const atGiver = q => (q.board === 'yefim' ? S.w.zone === 'The Perimeter' && S.c.yefim : S.w.zone === "Scavenger's Hub");
+function turnIn(q) {
+    if (!q.objs.every(objDone) || !atGiver(q)) return;
+    q.objs.forEach(o => {
+        if (o.t === 'have') take(o.item, o.need);
+        if (o.t === 'item') take(o.item);
+        if (o.t === 'artifact') {
+            const i = S.p.arts.map((n, j) => [n, j]).filter(([n]) => !ARTS[n].legend && ARTS[n].tier >= o.minTier).sort((a, b) => ARTS[a[0]].tier - ARTS[b[0]].tier)[0][1];
+            log(`Handed over ${S.p.arts[i]}.`); S.p.arts.splice(i, 1);
+        }
+    });
+    const r = q.reward; S.p.ru += r.ru; S.w.rep[q.giver] += r.rep;
+    S.w.quests = S.w.quests.filter(x => x !== q); S.w.prog.quests++;
+    log(`CONTRACT COMPLETE: ${q.title}. +${r.ru} Ru, ${q.giver} rep ${S.w.rep[q.giver]}.`, 'gold');
+    if (r.detector) {
+        if (!S.p.detector || DETECTORS[S.p.detector].bonus < DETECTORS[r.detector].bonus) { S.p.detector = r.detector; log(`Yefim presses his old ${r.detector} into your hands.`, 'gold'); }
+        else { S.p.ru += DETECTORS[r.detector].price / 2; log(`Yefim pays you for the detector you don't need.`); }
+    }
+    if (q.arc) { S.w.arc++; if (S.w.arc >= ARC.length) { S.w.prog.arcDone = true; log('Storyline complete: Old Man Yefim. He gives you friend prices from now on.', 'gold'); } }
+    checkRank();
+}
+
+// ===================== TACTICAL: GRID HELPERS =====================
+const inB = (x, y) => x >= 0 && y >= 0 && x < C.W && y < C.H;
+const tileAt = (x, y) => (inB(x, y) ? C.map[y][x] : '#');
+const isCoverT = t => t === 'C' || t === '=';
+const passable = (x, y) => '.C=^~'.includes(tileAt(x, y));
+const tileCost = (x, y) => (tileAt(x, y) === '~' ? 2 : 1);
+const active = u => u.alive && !u.gone && !u.surrendered;
+const onMap = u => u.alive && !u.gone;
+const unitAt = (x, y) => C.units.find(u => onMap(u) && u.x === x && u.y === y);
+const uname = u => `[${C.units.indexOf(u) + 1}] ${u.name}`;
+const hostilesLeft = () => C.units.some(active);
+const smokeAt = (x, y) => C.smoke.some(s => Math.abs(s.x - x) <= 1 && Math.abs(s.y - y) <= 1);
+const visible = u => !u.cloaked || man(u.x, u.y, C.px, C.py) <= 3;
+const myTurn = () => mode === 'combat' && C && !C.enemyPhase;
+const pDist = u => man(u.x, u.y, C.px, C.py);
+const blocksLoS = (x, y) => { const t = tileAt(x, y); return t === '#' || t === 'D'; };
+
+function lineTiles(x0, y0, x1, y1) {
+    const out = []; const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy, x = x0, y = y0;
+    while (!(x === x1 && y === y1)) {
+        const e2 = 2 * err; let mx = false, my = false;
+        if (e2 > -dy) { err -= dy; x += sx; mx = true; }
+        if (e2 < dx) { err += dx; y += sy; my = true; }
+        if (mx && my) out.push({ corner: [[x - sx, y], [x, y - sy]] });
+        if (!(x === x1 && y === y1)) out.push({ x, y });
+    }
+    return out;
+}
+function hasLoS(x0, y0, x1, y1) {
+    if (smokeAt(x0, y0) || smokeAt(x1, y1)) return false;
+    for (const t of lineTiles(x0, y0, x1, y1)) {
+        if (t.corner) { if (t.corner.every(([cx, cy]) => blocksLoS(cx, cy))) return false; }
+        else if (blocksLoS(t.x, t.y) || smokeAt(t.x, t.y)) return false;
+    }
+    return true;
+}
+function coverFor(ax, ay, tx, ty, melee) {
+    if (melee) return { bonus: 0, flanked: false };
+    const here = tileAt(tx, ty), dist = man(ax, ay, tx, ty);
+    if (isCoverT(here) && dist > 2) return { bonus: here === '=' ? 2 : 1, key: k(tx, ty) };
+    const line = lineTiles(ax, ay, tx, ty).filter(t => !t.corner);
+    const last = line[line.length - 1];
+    if (last && isCoverT(tileAt(last.x, last.y))) return { bonus: tileAt(last.x, last.y) === '=' ? 2 : 1, key: k(last.x, last.y) };
+    const covered = isCoverT(here) || DIR4.some(([dx, dy]) => isCoverT(tileAt(tx + dx, ty + dy)));
+    return { bonus: 0, flanked: covered };
+}
+function damageCover(key, n) {
+    const [x, y] = key.split(',').map(Number);
+    C.integ[key] = (C.integ[key] ?? (tileAt(x, y) === '=' ? 6 : 3)) - n;
+    if (C.integ[key] <= 0) { C.map[y][x] = '~'; delete C.integ[key]; log('Cover shredded to rubble!', 'warn'); }
+}
+function highGroundAdv(ax, ay, tx, ty, cov) { return tileAt(ax, ay) === '^' && tileAt(tx, ty) !== '^' && !cov.bonus; }
+
+function dijkstra(sx, sy, passFn) {
+    const W = C.W, N = W * C.H, dist = new Array(N).fill(Infinity), prev = new Array(N).fill(-1), done = new Array(N).fill(false);
+    dist[sy * W + sx] = 0;
+    for (;;) {
+        let best = -1, bd = Infinity;
+        for (let i = 0; i < N; i++) if (!done[i] && dist[i] < bd) { bd = dist[i]; best = i; }
+        if (best < 0) break;
+        done[best] = true;
+        const bx = best % W, by = (best / W) | 0;
+        for (const [dx, dy] of DIR4) {
+            const nx = bx + dx, ny = by + dy;
+            if (!inB(nx, ny) || !passFn(nx, ny)) continue;
+            const ni = ny * W + nx, nd = bd + tileCost(nx, ny);
+            if (nd < dist[ni]) { dist[ni] = nd; prev[ni] = best; }
+        }
+    }
+    return { dist, prev };
+}
+function pathTo(res, x, y) {
+    const W = C.W, out = []; let i = y * W + x;
+    while (res.prev[i] !== -1) { out.unshift([i % W, (i / W) | 0]); i = res.prev[i]; }
+    return out;
+}
+const playerPass = (x, y) => passable(x, y) && !unitAt(x, y) && !(C.anoms[k(x, y)] && C.anoms[k(x, y)].revealed);
+const npcPass = u => (x, y) => (passable(x, y) || tileAt(x, y) === 'D') && !C.anoms[k(x, y)] && !(x === C.px && y === C.py) && !C.units.some(o => o !== u && onMap(o) && o.x === x && o.y === y);
+
+// ===================== TACTICAL: SETUP =====================
+function enterTactical(zone, units) {
+    const rows = MAPS[zone] || MAPS['The Perimeter'];
+    C = {
+        zone, W: rows[0].length, H: rows.length, map: rows.map(r => r.split('')), anoms: {}, integ: {}, smoke: [], units, turn: 0,
+        px: 0, py: 3, ap: 0, apMax: 0, mp: 0, mpMax: 0, target: null, pending: null, killed: {}, hadEnemies: units.length > 0,
+        sameCover: 0, lastCover: null, suppressedNext: false, enemyPhase: false, injected: false, cleared: false, loot: [],
+    };
+    const Z = ZONES[zone];
+    for (let y = 0; y < C.H; y++) for (let x = 0; x < C.W; x++) if (C.map[y][x] === '!') { C.map[y][x] = '.'; C.anoms[k(x, y)] = newAnom(); }
+    if (!Z.indoor) {
+        for (let n = Math.floor(Math.random() * 3); n > 0; n--) {
+            const x = 3 + Math.floor(Math.random() * (C.W - 6)), y = Math.floor(Math.random() * C.H);
+            if (C.map[y][x] === '.' && !C.anoms[k(x, y)]) C.anoms[k(x, y)] = newAnom();
+        }
+    }
+    const taken = new Set();
+    let reach = null; // enemies only spawn where they can reach the player (doors count as openable)
+    const spawn = xs => {
+        for (const pass of [true, false]) for (const x of xs) for (const y of [3, 2, 4, 1, 5, 0, 6]) {
+            if (y < C.H && passable(x, y) && !C.anoms[k(x, y)] && !taken.has(k(x, y)) && (!pass || !reach || reach.dist[y * C.W + x] < Infinity)) { taken.add(k(x, y)); return [x, y]; }
+        }
+        return [0, 3];
+    };
+    [C.px, C.py] = spawn([0, 1, 2, 3]);
+    reach = dijkstra(C.px, C.py, (x, y) => (passable(x, y) || tileAt(x, y) === 'D') && !C.anoms[k(x, y)]);
+    units.forEach((u, i) => { u.id = i + 1; [u.x, u.y] = spawn([C.W - 1, C.W - 2, C.W - 3, C.W - 4, C.W - 5]); u.wounds = u.wounds || {}; });
+    C.target = units.length ? units[0].id : null;
+    mode = 'combat';
+    if (units.length) {
+        const shown = units.filter(visible).map(u => u.name);
+        log(`CONTACT in ${zone}: ${shown.length ? shown.join(', ') : 'something you cannot see'}!`, 'alert');
+        if (units.some(u => !visible(u))) log('The air shimmers. Something cloaked is out there.', 'warn');
+    } else log(`You move into ${zone} carefully. The area looks quiet.`);
+    detectorScan();
+    startPlayerTurn();
+}
+function newAnom() { const wts = {}; for (const n in ANOMALIES) wts[n] = ANOMALIES[n].w; return { type: wpick(wts), revealed: false, resolved: false, searched: false }; }
+function detectorScan() {
+    const d0 = D(); if (!d0.det || !d0.det.reveal) return;
+    for (const key in C.anoms) {
+        const a = C.anoms[key], [x, y] = key.split(',').map(Number);
+        if (!a.revealed && man(x, y, C.px, C.py) <= d0.det.range) { a.revealed = true; log(`Svarog ping: ${a.type} marked.`, 'warn'); }
+    }
+}
+function detectorPing() {
+    const d0 = D(); if (!d0.det || d0.det.reveal) return null;
+    let best = Infinity;
+    for (const key in C.anoms) { const a = C.anoms[key], [x, y] = key.split(',').map(Number); if (!a.revealed) best = Math.min(best, man(x, y, C.px, C.py)); }
+    return best <= d0.det.range ? best : null;
+}
+
+// ===================== TACTICAL: PLAYER TURN =====================
+function combatMP() {
+    const d0 = D(); let mp = d0.mpBase;
+    const wd = eqWD(); if (wd && wd.cat === 'heavy') mp = Math.min(mp, 2);
+    if (S.p.st.leg) mp = Math.max(1, mp - 2);
+    if (weight() > d0.carry) mp = Math.max(2, Math.floor(mp / (starving() ? 4 : 2)));
+    return mp;
+}
+function startPlayerTurn() {
+    const p = S.p, d0 = D();
+    C.turn++;
+    C.apMax = d0.ap; C.ap = Math.max(0, d0.ap - p.st.drain);
+    if (p.st.drain) log(`You lose ${p.st.drain} AP this turn.`, 'warn');
+    p.st.drain = 0;
+    C.mpMax = combatMP(); C.mp = C.mpMax;
+    Object.assign(C, { aim: 0, tapped: false, rhino: 0, takeCover: false, evasive: false, attacked: false, startTile: k(C.px, C.py) });
+    C.suppressed = C.suppressedNext; C.suppressedNext = false;
+    if (C.suppressed) log('You are SUPPRESSED: −2 to attacks this turn (move to different cover to shake it).', 'warn');
+    C.units.forEach(u => { u.dmgTurn = 0; });
+    if (C.turn > 1) {
+        if ((p.st.bleed || p.st.toxic) && !d0.noBleed && d0.bleedDmg > 0 && hurtPlayer(d0.bleedDmg, { msg: `${p.st.toxic && !p.st.bleed ? 'Toxic bleed' : 'Bleeding'}: −${d0.bleedDmg} HP.` })) return;
+        if (p.st.rad && hurtPlayer(1, { msg: 'Radiation: −1 HP.' })) return;
+        if (d0.regen && p.hp < d0.maxHp) p.hp = Math.min(d0.maxHp, p.hp + d0.regen);
+        if (p.tempTurns > 0 && --p.tempTurns === 0 && p.temp) { p.temp = 0; log('Your stimpak wears off.'); }
+    }
+}
+function actOK(cost) {
+    if (!myTurn()) return false;
+    if (S.p.st.prone) { log('You are prone — stand up first (1 AP).', 'warn'); return false; }
+    if (C.ap < cost) { log(`Not enough AP (need ${cost}).`, 'warn'); return false; }
+    return true;
+}
+const wpnCost = base => base + (starving() ? 1 : 0);
+function attackCost(burst) {
+    const wd = eqWD();
+    if (burst) return wpnCost(burstOf(wd).ap);
+    if (wd.rhino) return wpnCost(C.rhino % 3 === 0 ? 2 : 1);
+    return wpnCost(2);
+}
+const reloadCost = () => wpnCost(has('Quick Hands') ? 0 : (eqWD().reloadAp || 1));
+const jamCost = () => wpnCost(has('Gunsmith') ? 0 : 1);
+const swapCost = to => ((eqWD() && eqWD().compact) || WEAPONS[to.name].compact ? 0 : 1);
+const effRange = w => { const wd = WEAPONS[w.name]; return wd.cat === 'shotgun' && w.ammo === 'Dart' ? Math.max(6, wd.range + 2) : wd.range; };
+function jamThreshold(wd, cond, burst) {
+    let t = 1;
+    if (burst && !wd.burstJamImmune && !wd.reliable) t = 2;
+    if (cond === 'Dirty' || cond === 'Damaged' || wd.finicky) t = 2;
+    return t;
+}
+function calcDamage({ base, crit, mult = 1, ammo, dr, ignore = 0, bypass = 0, breacher = false }) {
+    let dmg = base * (crit ? 2 : 1) * mult;
+    if (ammo === 'Hollow Point') { if (dr === 0) dmg *= 1.25; else if (dr >= .2) dmg *= .5; }
+    else if (ammo === 'Armor Piercing') dr *= .4;
+    else if (ammo === 'Dart') dr *= .5;
+    dr *= (1 - ignore) * (1 - bypass);
+    dmg *= (1 - dr);
+    if (breacher) dmg += 4;
+    return Math.max(1, Math.round(dmg));
+}
+const unitDR = u => (u.kind === 'mutant' ? u.m.dr : clamp(ARMOR[u.armor.name].phys - ({ Damaged: .10, Broken: .25 }[u.armor.cond] || 0), 0, .75));
+const curTarget = () => C.units.find(u => u.id === C.target && active(u));
+
+function stepTo(nx, ny) {
+    const c = tileCost(nx, ny); if (C.mp < c) return false;
+    const from = [C.px, C.py];
+    C.mp -= c; C.px = nx; C.py = ny;
+    if (C.suppressed && !C.attacked && isCoverT(tileAt(nx, ny)) && k(nx, ny) !== C.startTile) { C.suppressed = false; log('You dive to fresh cover — no longer suppressed.', 'good'); }
+    let ok = true;
+    if (C.anoms[k(nx, ny)]) ok = enterAnomaly(nx, ny, from);
+    if (mode !== 'combat') return false;
+    detectorScan();
+    return ok;
+}
+function stepPlayer(dx, dy) {
+    if (!myTurn()) return;
+    if (S.p.st.prone) return log('You are prone — stand up first (1 AP).', 'warn');
+    const nx = C.px + dx, ny = C.py + dy;
+    if (!inB(nx, ny) || !passable(nx, ny)) return log('Path obstructed.', 'warn');
+    if (unitAt(nx, ny)) return log('Tile occupied.', 'warn');
+    if (C.mp < tileCost(nx, ny)) return log('Out of Movement Points.', 'warn');
+    stepTo(nx, ny);
+}
+function moveTo(x, y) {
+    if (S.p.st.prone) return log('You are prone — stand up first (1 AP).', 'warn');
+    const res = dijkstra(C.px, C.py, playerPass), dd = res.dist[y * C.W + x];
+    if (dd === Infinity || dd === 0) return;
+    if (dd > C.mp) return log(`Too far: ${dd} MP needed, ${C.mp} left.`, 'warn');
+    for (const [nx, ny] of pathTo(res, x, y)) if (!stepTo(nx, ny)) break;
+}
+function gridClick(x, y) {
+    if (!myTurn()) return;
+    if (C.pending) { playerThrow(C.pending, x, y); return; }
+    const u = C.units.find(v => onMap(v) && v.x === x && v.y === y && visible(v));
+    if (u) { C.target = u.id; return; }
+    moveTo(x, y);
+}
+
+function enterAnomaly(x, y, from) {
+    const a = C.anoms[k(x, y)], A = ANOMALIES[a.type], d0 = D();
+    a.revealed = true; a.resolved = true;
+    if (a.type === 'Radiation Pocket') {
+        if (d0.mods.includes('Closed-Breathing')) { log('Radiation Pocket — your closed-breathing rig filters it out.', 'good'); return true; }
+        S.p.st.rad = true;
+        const dmg = Math.max(1, Math.ceil(A.dmg * (1 - playerDR('anom'))));
+        return !hurtPlayer(dmg, { msg: `RADIATION POCKET: the counter screams. −${dmg} HP, Irradiated.` });
+    }
+    if (d0.compass) { log(`The Compass guides you safely past the ${a.type}.`, 'gold'); return true; }
+    const r = roll(d0.anomAdv ? 1 : 0), bonus = statMod(S.p.stats.A) + (d0.det ? d0.det.bonus : 0) + d0.avoid, tot = r.die + bonus;
+    if (tot >= A.dc) { log(`${a.type}! Avoided (${r.txt}${sgn(bonus)} = ${tot} vs DC ${A.dc}).`, 'good'); return true; }
+    const dmg = A.phys ? Math.max(1, Math.round(A.dmg * (1 - playerDR('phys')))) : Math.max(1, Math.ceil(A.dmg * (1 - playerDR('anom', a.type))));
+    if (hurtPlayer(dmg, { msg: `${a.type.toUpperCase()}! Failed (${r.txt}${sgn(bonus)} = ${tot} vs DC ${A.dc}): −${dmg} HP.` })) return false;
+    if (a.type === 'Burner' && r.die === 1) {
+        const meds = Object.keys(S.p.inv).filter(n => ITEMS[n] && ITEMS[n].med);
+        if (meds.length) { const m = pick(meds); take(m); log(`The flames consume your ${m}!`, 'alert'); }
+    }
+    if (a.type === 'Electro') { addDrain(2); log('Your nerves fry: −2 AP next turn.', 'warn'); }
+    if (a.type === 'Fruit Punch') { if (d0.noToxic) log('Your suit seals out the acid.', 'good'); else { S.p.st.toxic = true; log('Acid eats into you: TOXIC BLEED.', 'alert'); } }
+    if (a.type === 'Whirligig') {
+        if (!d0.noProne) S.p.st.prone = true;
+        const dx = Math.sign(from[0] - x), dy = Math.sign(from[1] - y);
+        for (let i = 0; i < 2; i++) { const nx = C.px + dx, ny = C.py + dy; if (!inB(nx, ny) || !passable(nx, ny) || unitAt(nx, ny) || C.anoms[k(nx, ny)]) break; C.px = nx; C.py = ny; }
+        log(`The vortex hurls you aside${d0.noProne ? '' : ' — you are PRONE'}.`, 'warn');
+    }
+    return false;
+}
+
+function playerAttack(burst) {
+    const w = eqW(); if (!w || !myTurn()) return;
+    const wd = WEAPONS[w.name], melee = wd.cat === 'melee', b = burst ? burstOf(wd) : null;
+    if (burst && !b) return;
+    if (w.cond === 'Broken') return log('Weapon is BROKEN. A technician must restore it.', 'alert');
+    if (w.jammed) return log('Weapon is jammed — clear it first.', 'warn');
+    const u = curTarget(); if (!u) return log('Select a target (click it on the grid).', 'warn');
+    const cost = attackCost(burst); if (!actOK(cost)) return;
+    const dist = pDist(u), range = melee ? 1 : effRange(w);
+    if (dist > range) return log(`Out of range (${dist} tiles, range ${range}).`, 'warn');
+    if (!hasLoS(C.px, C.py, u.x, u.y)) return log('No line of sight.', 'warn');
+    const rounds = melee ? 0 : (burst ? b.rounds : 1);
+    if (!melee && w.mag < rounds) return log('Not enough rounds loaded — reload.', 'warn');
+    C.ap -= cost; C.attacked = true;
+    if (wd.rhino && !burst) C.rhino++;
+    if (u.cloaked && dist >= 4) {
+        const r = d(20), m = statMod(S.p.stats.P), tot = r + m;
+        if (tot < u.m.cloak) { log(`You can't pick it out of the shimmer (Perception ${r}${sgn(m)} = ${tot} vs DC ${u.m.cloak}). Attack wasted.`, 'warn'); return; }
+        log(`You spot the distortion (Perception ${tot} vs DC ${u.m.cloak}).`, 'good');
+    }
+    if (!melee) w.mag -= rounds;
+    let hb = statMod(S.p.stats.A) + RANKS[S.p.rank].mod + (wd.hit || 0) - (wd.recoil ? 1 : 0);
+    if (wd.hitSingle && !burst) hb += 1;
+    if (wd.scope && dist >= 10) hb += 1;
+    if (wd.cat === 'shotgun' && dist <= 4) hb += 2;
+    if (burst) hb += (wd.cat === 'assault' && has('Recoil Control')) ? 0 : b.pen;
+    hb += C.aim; C.aim = 0;
+    if (C.suppressed) hb -= 2;
+    if (S.p.st.arm) hb -= 2;
+    const cov = coverFor(C.px, C.py, u.x, u.y, melee);
+    if (cov.flanked) hb += 2;
+    let adv = 0;
+    if (C.advNext) { adv = 1; C.advNext = false; }
+    if (highGroundAdv(C.px, C.py, u.x, u.y, cov)) adv = 1;
+    const r = roll(adv);
+    if (has('Controlled Taps') && r.die >= 15 && !C.tapped) { C.tapped = true; C.ap = Math.min(C.apMax, C.ap + 1); log('Controlled Taps: +1 AP.', 'good'); }
+    if (!melee && r.die <= jamThreshold(wd, w.cond, burst)) {
+        w.jammed = true;
+        if (!wd.reliable) w.cond = degrade(w.cond);
+        log(`CLICK! ${w.name} JAMS (natural ${r.die}). Condition: ${w.cond}.`, 'alert');
+        return;
+    }
+    const ac = u.ac + cov.bonus, tot = r.die + hb;
+    const head = `${burst ? 'Burst' : melee ? 'Strike' : 'Shot'} at ${uname(u)}: ${r.txt}${sgn(hb)} = ${tot} vs AC ${ac}${cov.bonus ? ` (cover +${cov.bonus})` : cov.flanked ? ' (FLANKED +2)' : ''}.`;
+    if (r.die !== 20 && tot < ac) {
+        const missBy = ac - tot;
+        if (cov.key && missBy <= 3 && r.die !== 1) damageCover(cov.key, (burst || wd.cat === 'shotgun') ? 2 : 1);
+        if (burst && missBy <= 3 && u.kind === 'human' && !u.suppressed) { u.suppressed = true; log(`${uname(u)} is SUPPRESSED.`, 'good'); }
+        log(head + ' Miss.');
+        return;
+    }
+    const crit = r.die === 20;
+    const dmg = calcDamage({
+        base: Math.floor(wd.dmg * (w.cond === 'Damaged' ? .75 : 1)), crit, mult: burst ? b.mult : 1, ammo: melee ? null : w.ammo,
+        dr: unitDR(u), ignore: wd.ignore || 0, bypass: D().bypass, breacher: wd.cat === 'shotgun' && dist <= 4 && has('Breacher'),
+    });
+    log(head + (crit ? ` CRITICAL! ${dmg} damage through a gap in the armor!` : ` Hit for ${dmg}.`), crit ? 'gold' : '');
+    if (wd.bleed && d(20) >= wd.bleed) { u.bleed = true; log(`${uname(u)} is BLEEDING.`, 'good'); }
+    damageUnit(u, dmg, { physical: true, crit, woundAt: wd.woundAt || 20, byPlayer: true });
+}
+function reload() {
+    const w = eqW(), wd = eqWD(); if (!w || !wd.cal) return;
+    if (w.cond === 'Broken') return log('Broken weapons cannot be loaded.', 'alert');
+    const cost = reloadCost(); if (!actOK(cost)) return;
+    const have = ammoCount(wd.cal, w.ammo), need = wd.cap - w.mag;
+    if (!need) return log('Magazine already full.', 'warn');
+    if (!have) return log(`No ${w.ammo} ${wd.cal} left.`, 'alert');
+    const n = Math.min(have, need); C.ap -= cost; w.mag += n; S.p.ammo[wd.cal][w.ammo] -= n;
+    log(`Reloaded ${w.name} (${w.mag}/${wd.cap} ${w.ammo}).`);
+}
+function clearJam() { const w = eqW(); if (!w || !w.jammed) return; const c = jamCost(); if (!actOK(c)) return; C.ap -= c; w.jammed = false; log('Jam cleared.'); }
+function standUp() { if (!myTurn() || !S.p.st.prone || C.ap < 1) return; C.ap -= 1; S.p.st.prone = false; log('You get back on your feet.'); }
+function aim() { if (!actOK(1)) return; C.ap -= 1; C.aim = (eqWD() && eqWD().aim) || 2; log(`Aiming: +${C.aim} on your next attack this turn.`); }
+const playerHasCover = () => isCoverT(tileAt(C.px, C.py)) || DIR4.some(([dx, dy]) => isCoverT(tileAt(C.px + dx, C.py + dy)));
+function takeCover() { if (!playerHasCover()) return log('Take Cover only works next to or on cover.', 'warn'); if (!actOK(2)) return; C.ap -= 2; C.takeCover = true; log('You hunker down: +2 AC on top of cover until your next turn.'); }
+function evasive() { if (!actOK(2)) return; C.ap -= 2; C.evasive = true; log('Evasive maneuvers: +2 AC vs melee until your next turn.'); }
+function leaderDown() { const hum = C.units.filter(u => u.kind === 'human'); return hum.length > 1 && !hum.some(u => u.role === 'Leader' && active(u)); }
+function intimidate() {
+    const u = curTarget(); if (!u || u.kind !== 'human') return log('Select a human target.', 'warn');
+    if (!actOK(2)) return;
+    if (pDist(u) > 8 || !hasLoS(C.px, C.py, u.x, u.y)) return log('They must be within 8 tiles and in sight.', 'warn');
+    C.ap -= 2;
+    if (u.rank === 6 || u.boss) return log(`${uname(u)} laughs at you. Legends can't be cowed.`);
+    const r = roll(leaderDown() ? 1 : 0), bonus = Math.max(statMod(S.p.stats.S), statMod(S.p.stats.I)) + RANKS[S.p.rank].mod, dc = 12 + RANKS[u.rank].mod, tot = r.die + bonus;
+    if (tot < dc) return log(`Intimidate ${uname(u)}: ${r.txt}${sgn(bonus)} = ${tot} vs DC ${dc}. They hold steady.`);
+    log(`Intimidate ${uname(u)}: ${tot} vs DC ${dc}. It works!`, 'good');
+    if (u.morale === 'Steady') setShaken(u, 'your threats'); else breakUnit(u);
+}
+function adjacentTile(pred) {
+    for (const [dx, dy] of [[0, 0], ...DIR4]) { const x = C.px + dx, y = C.py + dy; if (inB(x, y) && pred(x, y)) return [x, y]; }
+    return null;
+}
+function searchAnomaly() {
+    const t = adjacentTile((x, y) => { const a = C.anoms[k(x, y)]; return a && a.resolved && !a.searched; });
+    if (!t) return log('No resolved, unsearched anomaly next to you. Step into it first.', 'warn');
+    if (!actOK(2)) return;
+    C.ap -= 2;
+    const a = C.anoms[k(...t)], d0 = D(), r = d(20), bonus = statMod(S.p.stats.P) + (d0.det ? d0.det.bonus : 0), tot = r + bonus;
+    a.searched = true;
+    if (tot >= 15) { const art = rollArtifact(ZONES[C.zone].tier); S.p.arts.push(art); log(`ARTIFACT (${r}${sgn(bonus)} = ${tot} vs DC 15): you pry a ${art} out of the ${a.type}!`, 'gold'); }
+    else log(`You comb the ${a.type} (${r}${sgn(bonus)} = ${tot} vs DC 15). Nothing.`);
+}
+function rollArtifact(zt) {
+    let t = Math.min(zt, 5); if (Math.random() < .25) t = Math.max(1, t - 1);
+    let pool = [];
+    while (t >= 1 && !(pool = Object.keys(ARTS).filter(n => !ARTS[n].legend && ARTS[n].tier === t)).length) t--;
+    return pick(pool);
+}
+function interact() {
+    const t = adjacentTile((x, y) => 'DTS'.includes(tileAt(x, y)) && tileAt(x, y) !== '#');
+    if (!t) return log('Nothing to interact with next to you.', 'warn');
+    if (!actOK(2)) return;
+    C.ap -= 2;
+    const [x, y] = t, tile = tileAt(x, y), p = S.p;
+    if (tile === 'D') {
+        const r = d(20), m = Math.max(statMod(p.stats.S), statMod(p.stats.I)), tot = r + m;
+        if (tot >= 13) { C.map[y][x] = '.'; log(`Door forced (${r}${sgn(m)} = ${tot} vs DC 13).`, 'good'); }
+        else log(`The door holds (${r}${sgn(m)} = ${tot} vs DC 13).`);
+    } else if (tile === 'T') hackTerminal();
+    else if (tile === 'S') {
+        if (S.w.terms.stash) return log('The stash is empty.');
+        S.w.terms.stash = true; S.w.prog.subCleared = true; addItem("Yefim's Lockbox"); p.ru += 150;
+        log("Behind loose stones: a rusted lockbox stamped 'Y.' and a roll of 150 Ru.", 'gold');
+        checkRank();
+    }
+}
+function hackTerminal() {
+    const z = C.zone, Z = ZONES[z], w = S.w;
+    if (w.terms[z]) return log('The terminal is already wiped clean.');
+    const r = d(20), m = statMod(S.p.stats.I), tot = r + m;
+    if (tot < Z.termDC) return log(`Hack failed (${r}${sgn(m)} = ${tot} vs DC ${Z.termDC}). The lockout resets.`);
+    w.terms[z] = true;
+    if (Z.isSub) w.prog.subCleared = true;
+    log(`Terminal cracked (${tot} vs DC ${Z.termDC}).`, 'good');
+    if (Z.lab === 'alpha') { w.story.alpha = true; S.p.ru += 300; log('STORY: FRAGMENT ALPHA recovered — the origin research log. (+300 Ru from a lab cashbox)', 'gold'); }
+    if (Z.lab === 'beta') { w.story.beta = true; S.p.arts.push('Heart of the Oasis'); log('STORY: FRAGMENT BETA recovered — and in the cryo-locker, the HEART OF THE OASIS!', 'gold'); }
+    if (Z.lab === 'gamma') { w.story.gamma = true; S.p.arts.push('The Compass'); log('STORY: FRAGMENT GAMMA recovered — and THE COMPASS, humming in its cradle!', 'gold'); }
+    if (z === 'The Antenna Grid') { S.p.arts.push('Lucifer'); log('The relay opens a containment drawer: LUCIFER, warm as a coal.', 'gold'); }
+    checkRank();
+}
+function dodgeLeap() {
+    const u = C.units.find(v => active(v) && v.leapReady); if (!u || !actOK(1)) return;
+    C.ap -= 1;
+    const r = d(20), m = statMod(S.p.stats.A), tot = r + m;
+    C.dodge = { id: u.id, ok: tot >= u.m.leapDC };
+    log(`You brace to dodge ${uname(u)}'s leap: ${r}${sgn(m)} = ${tot} vs DC ${u.m.leapDC} — ${C.dodge.ok ? 'ready to roll aside!' : 'you misjudge it.'}`, C.dodge.ok ? 'good' : 'warn');
+}
+const onEdge = () => C.px === 0 || C.py === 0 || C.px === C.W - 1 || C.py === C.H - 1;
+function leaveArea(flee) {
+    if (flee) log('You break contact and slip out of the area.', 'warn');
+    else {
+        const left = C.units.filter(u => u.surrendered && !u.resolved);
+        if (left.length) log('You leave the prisoners to the Zone.');
+    }
+    if (C.hadEnemies && C.cleared && ZONES[C.zone].isSub) S.w.prog.subCleared = true;
+    const p = S.p; p.temp = 0; p.tempTurns = 0; p.st.prone = false; p.st.drain = 0;
+    S.p.weapons.forEach(w => { w.jammed = false; });
+    C = null; mode = 'world'; tab = S.w.zone === 'The Perimeter' ? 'camp' : 'zone';
+    topOffAll(); checkRank(); saveGame(true);
+}
+
+// ===================== TACTICAL: GRENADES =====================
+function playerThrow(type, x, y) {
+    C.pending = null;
+    if (man(C.px, C.py, x, y) > 8 || !hasLoS(C.px, C.py, x, y) || blocksLoS(x, y)) return log('Target tile must be within 8 tiles and in line of sight.', 'warn');
+    const cost = wpnCost(2); if (!actOK(cost) || !take(type)) return;
+    C.ap -= cost; C.attacked = true;
+    detonate(type, 'player', x, y);
+}
+function detonate(type, thrower, tx, ty) {
+    const fromP = thrower === 'player', agi = fromP ? statMod(S.p.stats.A) : 0, r = d(20);
+    if (r + agi < 12) {
+        const n = d(4), dir = DIR8[d(8) - 1];
+        tx = clamp(tx + dir[0] * n, 0, C.W - 1); ty = clamp(ty + dir[1] * n, 0, C.H - 1);
+        log(`The ${type} goes wide (${r}${sgn(agi)} vs DC 12) and lands ${n} tile(s) off.`, 'warn');
+    }
+    const who = fromP ? 'Your' : `${uname(thrower)}'s`;
+    if (type === 'Smoke Grenade') { C.smoke.push({ x: tx, y: ty, until: C.turn + 2 }); log(`${who} smoke blooms — line of sight blocked.`); return; }
+    log(`${who} ${type} detonates!`, 'alert');
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const x = tx + dx, y = ty + dy; if (!inB(x, y)) continue;
+        if (type === 'Frag Grenade') { if (C.map[y][x] === 'C') C.map[y][x] = '~'; else if (C.map[y][x] === '=') damageCover(k(x, y), 3); }
+        if (x === C.px && y === C.py) blastPlayer(type);
+        if (mode !== 'combat') return;
+        const u = unitAt(x, y); if (u && !u.surrendered) blastUnit(type, u, fromP);
+    }
+}
+function blastPlayer(type) {
+    const d0 = D(), r = d(20), m = statMod(S.p.stats.A), save = r + m >= 13;
+    if (type === 'Flashbang') { if (save) log('You turn away from the flash.'); else { addDrain(2); log('BLINDED by the flashbang: −2 AP next turn.', 'warn'); } return; }
+    let dmg = Math.max(1, Math.round(40 * (1 - playerDR('phys'))));
+    if (save) { dmg = Math.max(1, Math.round(dmg / 2)); if (!d0.noProne) S.p.st.prone = true; }
+    hurtPlayer(dmg, { msg: `Shrapnel tears into you: −${dmg} HP${save ? ' (dove flat — PRONE)' : ''}.`, physical: true });
+}
+function blastUnit(type, u, fromP) {
+    const agi = u.kind === 'mutant' ? u.m.agi : 0, save = d(20) + agi >= 13;
+    if (type === 'Flashbang') { if (!save) { u.drain = 2; log(`${uname(u)} is blinded: −2 AP.`, 'good'); } return; }
+    let dmg = Math.max(1, Math.round(40 * (1 - unitDR(u))));
+    if (save) { dmg = Math.max(1, Math.round(dmg / 2)); u.prone = true; }
+    log(`${uname(u)} caught in the blast: ${dmg} damage${save ? ' (prone)' : ''}.`);
+    damageUnit(u, dmg, { physical: true, woundAt: 20, byPlayer: fromP });
+}
+
+// ===================== TACTICAL: DAMAGE & MORALE =====================
+function hurtPlayer(dmg, o = {}) {
+    const p = S.p; let left = dmg;
+    if (p.temp > 0) { const a = Math.min(p.temp, left); p.temp -= a; left -= a; }
+    p.hp -= left;
+    if (o.msg) log(o.msg, 'alert');
+    if (o.physical && (dmg >= (o.woundAt || 20) || o.crit)) {
+        woundPlayer();
+        if (p.armor) { p.armor.cond = degrade(p.armor.cond); log(`Your ${p.armor.name} is battered: ${p.armor.cond}.`, 'warn'); }
+    }
+    if (mode === 'combat' && C && p.hp > 0 && p.hp <= 20 && !C.injected && p.armor && p.armor.mods.includes('Auto-Injector')) {
+        const med = ['Scientific Medkit', 'Military Medkit', 'Basic Medkit', 'Combat Stimpak', 'Basic Stimpak'].find(n => count(n) > 0);
+        if (med) { C.injected = true; take(med); log(`AUTO-INJECTOR fires: ${med}.`, 'good'); applyItem(med); }
+    }
+    if (p.hp <= 0) { die(); return true; }
+    return false;
+}
+function woundPlayer() {
+    const r = d(6), st = S.p.st;
+    if (r <= 2) { st.arm = true; log('WOUND (arm): −2 to attack rolls until bandaged.', 'alert'); }
+    else if (r <= 4) { st.leg = true; log('WOUND (leg): −2 MP until bandaged.', 'alert'); }
+    else if (r === 5) { st.bleed = true; log('WOUND (torso): you are BLEEDING.', 'alert'); }
+    else { addDrain(1); log('WOUND (head): your vision swims — −1 AP next turn.', 'alert'); }
+}
+function woundUnit(u) {
+    const r = d(6);
+    if (r <= 2) u.wounds.arm = true; else if (r <= 4) u.wounds.leg = true; else if (r === 5) u.bleed = true; else u.drain = (u.drain || 0) + 1;
+    u.armor.cond = degrade(u.armor.cond);
+    log(`${uname(u)} is WOUNDED (${['arm', 'arm', 'leg', 'leg', 'torso — bleeding', 'head'][r - 1]}).`, 'good');
+}
+function damageUnit(u, dmg, o = {}) {
+    u.hp -= dmg;
+    if (!C.enemyPhase) u.dmgTurn = (u.dmgTurn || 0) + dmg;
+    if (u.hp <= 0) { killUnit(u, o.byPlayer); return; }
+    if (u.kind === 'human') {
+        if (o.physical && (dmg >= (o.woundAt || 20) || o.crit)) woundUnit(u);
+        moraleCheck(u);
+    } else {
+        const m = u.m;
+        if (!m.berserk && !u.staggered && !C.enemyPhase && u.dmgTurn >= .4 * u.maxHp) { u.staggered = true; log(`${uname(u)} is STAGGERED — it loses its next turn!`, 'good'); }
+        if (m.panic && u.hp <= m.panic * u.maxHp) { u.gone = true; log(`${uname(u)} PANICS and flees into the Zone!`, 'good'); }
+    }
+}
+function killUnit(u, byPlayer) {
+    u.alive = false; u.hp = 0;
+    log(`${uname(u)} is down!`, 'good');
+    const pr = S.w.prog;
+    if (u.kind === 'mutant') pr.mutTier = Math.max(pr.mutTier, u.tier);
+    else {
+        pr.npcRank = Math.max(pr.npcRank, u.rank);
+        C.killed[u.faction] = (C.killed[u.faction] || 0) + 1;
+        if (u.boss) C.bossDown = true;
+        C.units.forEach(a => { if (a !== u && active(a) && a.kind === 'human' && (u.role === 'Leader' || hasLoS(a.x, a.y, u.x, u.y))) setShaken(a, u.role === 'Leader' ? 'their leader fell' : 'an ally died in view'); });
+    }
+    S.w.quests.forEach(q => q.objs.forEach(o => {
+        if (o.t === 'kill' && o.zone === C.zone && o.have < o.need && (o.name ? o.name === u.name : o.faction === u.faction)) { o.have++; log(`Objective: ${objText(o)}.`, 'gold'); }
+    }));
+    if (byPlayer && !C.enemyPhase && D().killAp) { C.ap = Math.min(C.apMax, C.ap + 1); log('The Black Star drinks the kill: +1 AP.', 'gold'); }
+    checkRank();
+}
+function setShaken(a, why) {
+    if (a.boss || a.rank === 6 || a.morale !== 'Steady' || !active(a)) return;
+    a.morale = 'Shaken'; log(`${uname(a)} is SHAKEN (${why}).`, 'good');
+}
+function moraleCheck(u) {
+    if (!active(u) || u.boss) return;
+    const R = RANKS[u.rank];
+    if (u.morale === 'Steady' && u.hp <= R.shaken * u.maxHp) setShaken(u, 'heavy wounds');
+    if (u.morale !== 'Broken' && u.hp <= R.broken * u.maxHp) breakUnit(u);
+}
+function breakUnit(u) {
+    if (u.boss || !active(u)) return;
+    u.morale = 'Broken';
+    if (u.rank === 6 || d(20) <= 10) { u.gone = true; log(`${uname(u)} BREAKS and flees!`, 'good'); }
+    else { u.surrendered = true; log(`${uname(u)} throws down their weapon and SURRENDERS.`, 'gold'); }
+    if (u.role === 'Leader') C.units.forEach(a => { if (a !== u && a.kind === 'human') setShaken(a, 'their leader is gone'); });
+}
+
+// ===================== TACTICAL: ENEMY AI =====================
+function npcMoveTo(u, mp, isGoal, score = () => 0) {
+    if (mp <= 0) return 0;
+    const res = dijkstra(u.x, u.y, npcPass(u));
+    let best = null, bs = Infinity;
+    for (let y = 0; y < C.H; y++) for (let x = 0; x < C.W; x++) {
+        const dd = res.dist[y * C.W + x]; if (dd === Infinity || !isGoal(x, y)) continue;
+        const s = dd + score(x, y); if (s < bs) { bs = s; best = [x, y]; }
+    }
+    if (!best) {
+        for (let y = 0; y < C.H; y++) for (let x = 0; x < C.W; x++) {
+            const dd = res.dist[y * C.W + x]; if (dd === Infinity) continue;
+            const s = man(x, y, C.px, C.py) * 3 + dd * .1; if (s < bs) { bs = s; best = [x, y]; }
+        }
+    }
+    if (!best) return 0;
+    let used = 0;
+    for (const [x, y] of pathTo(res, best[0], best[1])) {
+        const c = tileCost(x, y); if (used + c > mp) break;
+        used += c; npcStep(u, x, y);
+    }
+    return used;
+}
+function npcStep(u, x, y) {
+    if (C.map[y][x] === 'D') { C.map[y][x] = '.'; log(`${uname(u)} kicks a door open.`, 'warn'); }
+    u.x = x; u.y = y;
+}
+const npcRange = u => { const wd = WEAPONS[u.weapon.name]; return wd.cat === 'melee' ? 1 : wd.range; };
+const canShootFrom = (u, x, y) => man(x, y, C.px, C.py) <= npcRange(u) && hasLoS(x, y, C.px, C.py);
+const nearCover = (x, y) => isCoverT(tileAt(x, y)) || DIR4.some(([dx, dy]) => isCoverT(tileAt(x + dx, y + dy)));
+function enemyRound() {
+    C.enemyPhase = true; C.attacksOnPlayer = 0;
+    const onCov = isCoverT(tileAt(C.px, C.py)), key = k(C.px, C.py);
+    C.sameCover = onCov ? (C.lastCover === key ? C.sameCover + 1 : 1) : 0;
+    C.lastCover = onCov ? key : null;
+    log('— Enemy round —', 'dim');
+    for (const u of C.units) {
+        if (!active(u)) continue;
+        if (u.kind === 'human') actHuman(u); else actMutant(u);
+        if (mode !== 'combat') return;
+    }
+    if (C.attacksOnPlayer >= 3 && !C.suppressedNext) { C.suppressedNext = true; log('Under heavy fire — you will be SUPPRESSED.', 'warn'); }
+    C.smoke = C.smoke.filter(s => s.until > C.turn);
+    C.enemyPhase = false;
+    C.dodge = null;
+    startPlayerTurn();
+}
+function npcTurnStart(u) {
+    if (u.bleed) { log(`${uname(u)} bleeds (−5 HP).`); damageUnit(u, 5, {}); if (!active(u)) return -1; }
+    let ap = (u.apMax || u.ap) - (u.drain || 0); u.drain = 0;
+    if (u.prone && ap > 0) { ap--; u.prone = false; }
+    return ap;
+}
+function actHuman(u) {
+    let ap = npcTurnStart(u); if (ap < 0) return;
+    const wd = WEAPONS[u.weapon.name], melee = wd.cat === 'melee', b = burstOf(wd);
+    if (u.role === 'Leader' && !u.suppressed) {
+        const ally = pick(C.units.filter(a => a !== u && active(a) && a.kind === 'human' && a.morale === 'Steady'));
+        if (ally) ally.cmd = 2;
+        const shaken = C.units.find(a => a !== u && active(a) && a.morale === 'Shaken' && man(a.x, a.y, u.x, u.y) <= 6);
+        if (shaken && ap >= 2) { shaken.morale = 'Steady'; ap -= 2; log(`${uname(u)} rallies ${uname(shaken)} back into the fight.`, 'warn'); }
+    }
+    let mp = u.mpMax; if (wd.cat === 'heavy') mp = Math.min(mp, 2); if (u.wounds.leg) mp = Math.max(1, mp - 2);
+    const here = pDist(u);
+    if (u.morale === 'Shaken') npcMoveTo(u, mp, (x, y) => man(x, y, C.px, C.py) >= here, (x, y) => -man(x, y, C.px, C.py) * 2 - (nearCover(x, y) ? 4 : 0));
+    else if (u.role === 'Anchor' || u.role === 'Leader') npcMoveTo(u, mp, (x, y) => canShootFrom(u, x, y), (x, y) => (nearCover(x, y) ? -3 : 0) + (man(x, y, C.px, C.py) < 3 ? 4 : 0));
+    else if (u.role === 'Rusher') npcMoveTo(u, mp, (x, y) => canShootFrom(u, x, y), (x, y) => (coverFor(x, y, C.px, C.py, false).flanked ? -2 : 0));
+    else npcMoveTo(u, mp, (x, y) => canShootFrom(u, x, y), (x, y) => { const cv = coverFor(x, y, C.px, C.py, melee); return cv.bonus ? 4 : cv.flanked ? -3 : 0; });
+    if (u.weapon.jammed && ap >= 1) { ap--; u.weapon.jammed = false; log(`${uname(u)} clears a jam.`); }
+    if (u.grenades.frag > 0 && ap >= 2 && C.sameCover >= 2 && pDist(u) <= 8 && hasLoS(u.x, u.y, C.px, C.py)) {
+        u.grenades.frag--; ap -= 2; detonate('Frag Grenade', u, C.px, C.py);
+        if (mode !== 'combat') return;
+    }
+    if (!melee && u.weapon.mag < 1 && ap >= 1) { ap--; u.weapon.mag = wd.cap; log(`${uname(u)} reloads.`); }
+    if (ap >= 2 && !u.weapon.jammed && u.weapon.cond !== 'Broken' && canShootFrom(u, u.x, u.y)) {
+        const burst = !!b && u.role !== 'Leader' && ap >= b.ap && u.weapon.mag >= b.rounds;
+        if (u.role === 'Anchor' && ap >= (burst ? b.ap : 2) + 1) { u.aim = 2; ap--; }
+        npcAttack(u, burst);
+    }
+    u.suppressed = false;
+}
+function npcAttack(u, burst) {
+    const wd = WEAPONS[u.weapon.name], melee = wd.cat === 'melee', b = burst ? burstOf(wd) : null, dist = pDist(u);
+    if (!melee) u.weapon.mag -= burst ? b.rounds : 1;
+    let hb = RANKS[u.rank].mod + (wd.hit || 0) - (wd.recoil ? 1 : 0) + (wd.hitSingle && !burst ? 1 : 0) + (wd.scope && dist >= 10 ? 1 : 0)
+        + (wd.cat === 'shotgun' && dist <= 4 ? 2 : 0) + (burst ? b.pen : 0) + (u.aim || 0) + (u.cmd || 0)
+        - (u.morale === 'Shaken' ? 2 : 0) - (u.suppressed ? 2 : 0) - (u.wounds.arm ? 2 : 0);
+    u.aim = 0; u.cmd = 0;
+    const cov = coverFor(u.x, u.y, C.px, C.py, melee);
+    if (cov.flanked) hb += 2;
+    const ac = playerBaseAC() + cov.bonus + (C.takeCover && cov.bonus ? 2 : 0) + (melee && C.evasive ? 2 : 0);
+    const r = roll(highGroundAdv(u.x, u.y, C.px, C.py, cov) ? 1 : 0);
+    C.attacksOnPlayer++;
+    const verb = burst ? 'bursts' : melee ? 'strikes' : 'fires';
+    if (!melee && r.die <= jamThreshold(wd, u.weapon.cond, burst)) {
+        u.weapon.jammed = true; if (!wd.reliable) u.weapon.cond = degrade(u.weapon.cond);
+        log(`${uname(u)}'s ${wd.name} jams!`, 'good'); return;
+    }
+    const tot = r.die + hb, head = `${uname(u)} [${u.role}${u.morale !== 'Steady' ? ', ' + u.morale : ''}] ${verb} (${wd.name}): ${r.txt}${sgn(hb)} = ${tot} vs AC ${ac}${cov.bonus ? ` (cover +${cov.bonus})` : cov.flanked ? ' (you are FLANKED)' : ''}.`;
+    if (r.die !== 20 && tot < ac) {
+        const missBy = ac - tot;
+        if (cov.key && missBy <= 3 && r.die !== 1) damageCover(cov.key, (burst || wd.cat === 'shotgun') ? 2 : 1);
+        if (burst && missBy <= 3) C.suppressedNext = true;
+        log(head + ' Miss.'); return;
+    }
+    const crit = r.die === 20 && !D().noCrit;
+    const dmg = calcDamage({ base: Math.floor(wd.dmg * (u.weapon.cond === 'Damaged' ? .75 : 1)), crit, mult: burst ? b.mult : 1, ammo: 'Standard', dr: playerDR('phys'), ignore: wd.ignore || 0 });
+    hurtPlayer(dmg, { msg: head + ` HIT for ${dmg}${crit ? ' (CRITICAL)' : ''}.`, physical: true, crit: r.die === 20, woundAt: wd.woundAt || 20 });
+}
+function actMutant(u) {
+    if (npcTurnStart(u) < 0) return;
+    const m = u.m;
+    if (u.staggered) { u.staggered = false; log(`${uname(u)} reels, recovering from the stagger.`); return; }
+    const dp = () => pDist(u);
+    const band = (lo, hi, los) => (x, y) => { const dd = man(x, y, C.px, C.py); return dd >= lo && dd <= hi && (!los || hasLoS(x, y, C.px, C.py)); };
+    const adj = (x, y) => man(x, y, C.px, C.py) === 1;
+    const mp = u.mp;
+    if (m.beh === 'ranged') {
+        npcMoveTo(u, mp, band(3, 5, true));
+        if (dp() <= m.psi && hasLoS(u.x, u.y, C.px, C.py)) mutantAttack(u, 0);
+    } else if (m.beh === 'ambush') {
+        const res = dijkstra(u.x, u.y, npcPass(u));
+        let best = null, bc = Infinity;
+        for (let y = 0; y < C.H; y++) for (let x = 0; x < C.W; x++) { const c = res.dist[y * C.W + x]; if (adj(x, y) && c <= mp && c < bc) { bc = c; best = [x, y]; } }
+        if (best) {
+            for (const [x, y] of pathTo(res, best[0], best[1])) npcStep(u, x, y);
+            mutantAttack(u, 0);
+            if (mode === 'combat' && active(u)) npcMoveTo(u, mp - bc, (x, y) => man(x, y, C.px, C.py) >= 4, (x, y) => -man(x, y, C.px, C.py));
+        } else npcMoveTo(u, mp, band(4, 5, false));
+    } else if (m.beh === 'leap') {
+        if (u.leapReady && dp() <= mp + 1 && hasLoS(u.x, u.y, C.px, C.py)) { leapAttack(u); return; }
+        u.leapReady = false;
+        npcMoveTo(u, mp, band(3, 5, true), (x, y) => (man(x, y, C.px, C.py) === 4 ? -.5 : 0));
+        if (dp() >= 3 && dp() <= 5 && hasLoS(u.x, u.y, C.px, C.py)) { u.leapReady = true; log(`${uname(u)} [Berserk + Leap] crouches low, muscles coiling — it will LEAP next round! (Dodge: 1 AP, Agility DC ${m.leapDC})`, 'warn'); }
+    } else {
+        if (dp() > 1) npcMoveTo(u, mp, adj);
+        if (dp() === 1) { if (m.slam && !u.slamUsed && Math.random() < .5) groundSlam(u); else mutantAttack(u, 0); }
+    }
+    if (mode !== 'combat') return;
+    if (m.cloak && active(u) && dp() >= 4 && !u.cloaked) { u.cloaked = true; log(`${uname(u)} fades back into the shimmer.`, 'warn'); }
+}
+function leapAttack(u) {
+    let best = null, bd = Infinity;
+    for (const [dx, dy] of DIR4) { const x = C.px + dx, y = C.py + dy; if (inB(x, y) && passable(x, y) && npcPass(u)(x, y) && man(x, y, u.x, u.y) < bd) { bd = man(x, y, u.x, u.y); best = [x, y]; } }
+    u.leapReady = false;
+    if (!best) return;
+    [u.x, u.y] = best;
+    log(`${uname(u)} LEAPS across the sector!`, 'alert');
+    if (C.dodge && C.dodge.id === u.id && C.dodge.ok) { C.advNext = true; log('You roll aside — the leap misses! Advantage on your next attack.', 'good'); return; }
+    mutantAttack(u, 1);
+}
+function groundSlam(u) {
+    u.slamUsed = true; C.attacksOnPlayer++;
+    const r = d(20), m = statMod(S.p.stats.A), dmg = Math.max(1, Math.round(30 * (1 - playerDR('phys', 'mutant'))));
+    log(`${uname(u)} [Berserk] GROUND SLAM!`, 'alert');
+    if (hurtPlayer(dmg, { msg: `The shockwave hits you for ${dmg}.`, physical: true })) return;
+    if (r + m < 13 && !D().noProne) { S.p.st.prone = true; log(`Knocked PRONE (Agility ${r}${sgn(m)} vs DC 13).`, 'warn'); }
+}
+function mutantAttack(u, adv) {
+    const m = u.m;
+    if (m.pack && C.units.some(o => o !== u && active(o) && o.kind === 'mutant' && o.m.pack && man(o.x, o.y, u.x, u.y) === 1)) adv = 1;
+    const psi = !!m.psi;
+    let ac = playerBaseAC(), cov = { bonus: 0 };
+    if (psi) { cov = coverFor(u.x, u.y, C.px, C.py, false); ac += cov.bonus + (C.takeCover && cov.bonus ? 2 : 0); }
+    else if (C.evasive) ac += 2;
+    const r = roll(adv), tot = r.die + m.agi;
+    C.attacksOnPlayer++;
+    if (u.cloaked) { u.cloaked = false; log(`${uname(u)} ripples into view as it strikes!`, 'alert'); }
+    const head = `${uname(u)} [${m.beh}] ${psi ? 'PSI BLAST' : 'attacks'}: ${r.txt}${sgn(m.agi)} = ${tot} vs AC ${ac}.`;
+    if (r.die !== 20 && tot < ac) { log(head + ' Miss.'); return; }
+    const crit = r.die === 20 && !D().noCrit;
+    if (psi) {
+        const dmg = Math.max(1, Math.ceil(m.dmg * (crit ? 2 : 1) * (1 - playerDR('anom', 'psi'))));
+        if (hurtPlayer(dmg, { msg: `${head} ${dmg} psi damage!` })) return;
+        if (m.neural) { const s = d(20) + statMod(S.p.stats.I); if (s < m.neural) { addDrain(1); log(`Neural overload (Int ${s} vs DC ${m.neural}): −1 AP next turn.`, 'warn'); } }
+        return;
+    }
+    const dr = playerDR('phys', 'mutant') * (1 - (m.ignore || 0));
+    const dmg = Math.max(1, Math.round(m.dmg * (crit ? 2 : 1) * (1 - dr)));
+    if (hurtPlayer(dmg, { msg: `${head} HIT for ${dmg}${crit ? ' (CRITICAL)' : ''}.`, physical: true, crit: r.die === 20 })) return;
+    if (m.toxicBite && d(20) >= m.toxicBite) { if (D().noToxic) log('Its bite fails to pierce your suit seals.'); else { S.p.st.toxic = true; log('Toxic bite: TOXIC BLEED.', 'alert'); } }
+    if (m.bleedOn && d(20) >= m.bleedOn) { S.p.st.bleed = true; log('Its claws open you up: BLEEDING.', 'alert'); }
+}
+
+// ===================== TACTICAL: TURN END & LOOT =====================
+function endTurn() {
+    if (!myTurn()) return;
+    C.pending = null;
+    C.suppressed = false;
+    if (!hostilesLeft()) { startPlayerTurn(); return; }
+    enemyRound();
+}
+function checkClear() {
+    if (mode !== 'combat' || !C || !C.hadEnemies || C.cleared || hostilesLeft()) return;
+    C.cleared = true;
+    log('AREA SECURED. Threats neutralized.', 'gold');
+    for (const f in C.killed) { const n = C.killed[f], lose = n >= 2 ? 2 : 1; S.w.rep[f] -= lose; log(`${f} rep −${lose} (${S.w.rep[f]}).`, 'warn'); }
+    if (C.bossDown) { mode = 'endgame'; log('THE LAST GATE AWAITS. The Arch-Zealot collapses; the containment door stands unsealed.', 'gold'); return; }
+    C.units.forEach(u => {
+        if (u.alive || u.gone) return;
+        if (u.kind === 'mutant') { if (!u.m.swarm || Math.random() < .5) C.loot.push({ kind: 'item', name: `Mutant Trophy (T${Math.min(5, u.tier)})` }); }
+        else C.loot.push(...humanLoot(u, false));
+    });
+}
+function humanLoot(u, withArmor) {
+    const wd = WEAPONS[u.weapon.name], out = [];
+    const rolled = ['Broken', 'Damaged', 'Damaged', 'Dirty', 'Dirty', 'Working'][d(6) - 1];
+    const order = ['Working', 'Dirty', 'Damaged', 'Broken'];
+    out.push({ kind: 'weapon', name: wd.name, cond: order[Math.max(order.indexOf(rolled), order.indexOf(u.weapon.cond))] });
+    if (wd.cal) out.push({ kind: 'ammo', name: wd.cal, n: CAT[wd.cat].box });
+    out.push({ kind: 'ru', name: 'Ru', n: 20 + d(40) + 15 * u.rank });
+    out.push(...extraLoot(u.rank));
+    ['frag', 'smoke', 'flash'].forEach(g => { if (u.grenades[g]) out.push({ kind: 'item', name: { frag: 'Frag Grenade', smoke: 'Smoke Grenade', flash: 'Flashbang' }[g] }); });
+    if (withArmor) out.push({ kind: 'armor', name: u.armor.name, cond: u.armor.cond });
+    return out;
+}
+function extraLoot(rank) {
+    const r = d(6);
+    if (r <= 2) return [];
+    return [{ kind: 'item', name: [null, null, 'Bandage', 'MRE', 'Basic Medkit', rank >= 3 ? 'Military Medkit' : 'Antirad Pill'][r - 1] }];
+}
+function lootLabel(l) {
+    if (l.kind === 'ru') return `${l.n} Ru`;
+    if (l.kind === 'ammo') return `${l.n} rds ${l.name} (Standard)`;
+    if (l.kind === 'weapon' || l.kind === 'armor') return `${l.name} (${l.cond})`;
+    return l.name;
+}
+function takeLoot(l) {
+    if (l.taken) return;
+    l.taken = true;
+    if (l.kind === 'ru') S.p.ru += l.n;
+    else if (l.kind === 'ammo') addAmmo(l.name, 'Standard', l.n);
+    else grant(l);
+    log(`Took ${lootLabel(l)}.`);
+}
+function prisoner(u, act) {
+    const fac = u.faction, w = S.w;
+    if (act === 'interrogate') {
+        u.asked = true;
+        const r = d(20), m = Math.max(statMod(S.p.stats.I), statMod(S.p.stats.S)), tot = r + m;
+        if (tot < 12) return log(`Interrogation (${r}${sgn(m)} = ${tot} vs DC 12): they won't talk.`);
+        const extra = extraLoot(u.rank + 2);
+        if (extra.length) { C.loot.push(...extra); log(`Interrogation (${tot} vs DC 12): they point you to a nearby stash (${extra[0].name}).`, 'good'); }
+        else log(`Interrogation (${tot} vs DC 12): ${pick(RUMORS)}`, 'good');
+        return;
+    }
+    u.resolved = true;
+    if (act === 'loot') { C.loot.push(...humanLoot(u, true)); log(`You strip ${uname(u)} of their gear.`); }
+    if (act === 'free') { if (fac !== 'Raiders' && fac !== 'Obelisk') { w.rep[fac]++; log(`You let them go. ${fac} rep +1 (${w.rep[fac]}).`, 'good'); } else log('You let them go. They will not remember the favor.'); }
+    if (act === 'execute') { w.rep[fac]--; log(`You execute the prisoner. ${fac} rep −1 (${w.rep[fac]}).`, 'alert'); }
+}
+
+// ===================== ENDGAME =====================
+const ENDINGS = [
+    ['Ecologist', 'Contain the Source', 'Quarantine the anomaly permanently.'],
+    ['Contractors', 'Sell the Source', 'Liquidate it to syndicate buyers (+20,000 Ru).'],
+    ['Sentinels', 'Destroy the Source', 'Detonate the reactor charges and burn out the core.'],
+    ['Obelisk', 'Wake the Source', 'Become the prophet of the anomalous mind.'],
+    ['Alone', 'Claim the Source', 'Seize The Black Star (Awakened).'],
+];
+function resolveEnding(choice) {
+    const w = S.w; w.story.done = true; w.story.ending = choice;
+    if (w.rep[choice] !== undefined) w.rep[choice] += 3;
+    log(`CAMPAIGN RESOLUTION: you chose [${choice}].`, 'gold');
+    if (choice === 'Contractors') { S.p.ru += 20000; log('The syndicate pays: 20,000 Ru in transfer vouchers.'); }
+    if (choice === 'Alone') { S.p.arts.push('The Black Star (Awakened)'); log('You walk out holding THE BLACK STAR. The Zone bends around you.', 'gold'); }
+    if (choice === 'Obelisk') log('Obelisk lower their weapons when they see you now.');
+    log('You have conquered THE ZONE. Free play continues.', 'gold');
+    checkRank();
+    C = null; mode = 'world'; tab = 'zone';
+    saveGame(true);
+}
+
+// ===================== RENDER =====================
+function B(label, fn, o = {}) {
+    H.push(fn);
+    return `<button class="${o.cls || 'btn'}" data-a="${H.length - 1}"${o.dis ? ' disabled' : ''}${o.style ? ` style="${o.style}"` : ''}>${label}</button>`;
+}
+const TAB_LABEL = { camp: 'Camp', zone: 'Zone', trader: 'Yefim', hub: "Scavenger's Hub", quests: 'Quests', sheet: 'Character' };
+function availableTabs() {
+    const t = [], z = S.w.zone;
+    if (z === 'The Perimeter') t.push('camp');
+    if (S.c.lit) t.push('zone');
+    if (z === 'The Perimeter' && S.c.yefim) t.push('trader');
+    if (z === "Scavenger's Hub") t.push('hub');
+    if (S.c.yefim || S.w.visited.includes("Scavenger's Hub")) t.push('quests');
+    t.push('sheet');
+    return t;
+}
+function render() {
+    H = [];
+    $('left-col').innerHTML = mode === 'create' ? '<h2>NEW STALKER</h2><p class="muted">Build your character to begin.</p>' : renderLeft();
+    const tabsEl = $('main-tabs'), view = $('view');
+    if (mode !== 'world') {
+        tabsEl.innerHTML = '';
+        view.innerHTML = { create: viewCreate, dead: viewDead, endgame: viewEndgame, combat: viewCombat }[mode]();
+        return;
+    }
+    const tabs = availableTabs();
+    if (!tabs.includes(tab)) tab = tabs.includes('zone') ? 'zone' : tabs[0];
+    tabsEl.innerHTML = tabs.map(t => B(TAB_LABEL[t], () => { tab = t; }, { cls: 'tab-btn' + (t === tab ? ' active' : '') })).join('');
+    view.innerHTML = (S.p.pendingPerks > 0 ? viewPerk() : '') + { camp: viewCamp, zone: viewZone, trader: () => viewTrader('yefim'), hub: viewHub, quests: viewQuests, sheet: viewSheet }[tab]();
+}
+function actLabel() {
+    const s = S.w.story;
+    if (s.done) return `Act 5: Resolved (${s.ending})`;
+    if (allFrags()) return 'Act 4: Breach the Reactor Core';
+    if (s.alpha && s.beta) return 'Act 3: Infiltrate Lab Gamma';
+    if (s.alpha) return 'Act 2: Decrypt Lab Beta';
+    return 'Act 1: Locate Lab Alpha';
+}
+const survCol = v => (v <= 0.05 ? '#f44' : v < 3 ? '#fa4' : '#b0b0b0');
+function renderLeft() {
+    const p = S.p, d0 = D(), w = S.w, wt = weight();
+    const st = [];
+    if (p.st.bleed) st.push('Bleeding'); if (p.st.toxic) st.push('Toxic Bleed'); if (p.st.rad) st.push('Irradiated');
+    if (p.st.arm) st.push('Wound: Arm'); if (p.st.leg) st.push('Wound: Leg'); if (p.st.prone) st.push('Prone');
+    if (starving()) st.push('Starving'); if (wt > d0.carry) st.push('Overloaded');
+    let h = `<h2>${escH(p.name)}</h2>`;
+    h += `<div class="stat-bar">Day ${w.day} · <span class="gold">${RANKS[p.rank].name}</span></div>`;
+    h += `<div class="stat-bar good">${w.zone}</div>`;
+    if (w.emission) h += `<div class="stat-bar emission">EMISSION! ${w.emission} move(s) to shelter!</div>`;
+    h += `<br><div class="stat-bar" style="color:${p.hp < 30 ? '#f44' : '#b0b0b0'}">HP: ${Math.floor(p.hp)}/${d0.maxHp}${p.temp ? ` <span class="good">(+${p.temp} temp)</span>` : ''}</div>`;
+    h += `<div class="stat-bar" style="color:${survCol(p.hunger)}">Hunger: ${p.hunger.toFixed(1)}/10</div>`;
+    h += `<div class="stat-bar" style="color:${survCol(p.thirst)}">Thirst: ${p.thirst.toFixed(1)}/10</div>`;
+    h += `<div class="stat-bar" style="color:${survCol(p.tired)}">Tiredness: ${p.tired.toFixed(1)}/10</div>`;
+    h += `<div class="stat-bar" style="color:${wt > d0.carry ? '#f44' : '#b0b0b0'}">Carry: ${wt}/${d0.carry}kg</div>`;
+    h += `<div class="stat-bar">Status: <span class="${st.length ? 'alert' : 'good'}">${st.join(', ') || 'Healthy'}</span></div>`;
+    h += `<div class="stat-bar gold"><b>Ru: ${p.ru}</b></div>`;
+    h += '<h3>Attributes</h3>';
+    h += `<div class="stat-bar">${['S', 'P', 'A', 'I'].map(s => `${s} ${p.stats[s]} (${sgn(statMod(p.stats[s]))})`).join(' · ')}</div>`;
+    h += `<div class="stat-bar small" style="color:#dda0dd">Perks: ${p.perks.join(', ') || 'None'}</div>`;
+    h += '<h3>Main Story</h3>';
+    h += `<div class="stat-bar">${actLabel()}</div><div class="stat-bar small">`;
+    h += ['alpha', 'beta', 'gamma'].map(f => `<span style="color:${w.story[f] ? '#44ff44' : '#666'}">${f[0].toUpperCase() + f.slice(1)} [${w.story[f] ? '✓' : ' '}]</span>`).join(' · ') + '</div>';
+    h += '<h3>Inventory</h3>';
+    const items = Object.keys(p.inv).sort();
+    if (!items.length) h += '<div class="muted small">Empty.</div>';
+    items.forEach(n => {
+        const it = ITEMS[n]; let btn = '';
+        if (it.heal || it.temp || n === 'Bandage' || n === 'Antirad Pill' || n === 'MRE') btn = B(mode === 'combat' ? 'Use (2 AP)' : 'Use', () => useItem(n), { cls: 'inv-btn', dis: mode === 'combat' && !myTurn() });
+        h += `<div class="inv-item"><span>${n}: ${p.inv[n]}</span>${btn}</div>`;
+    });
+    const ammo = [];
+    for (const cal in p.ammo) for (const t in p.ammo[cal]) if (p.ammo[cal][t]) ammo.push(`${cal} ${AMMO[t].short} ×${p.ammo[cal][t]}`);
+    if (ammo.length) h += `<div class="stat-bar small muted">Ammo: ${ammo.join(' · ')}</div>`;
+    if (p.arts.length || p.belt.length) h += `<div class="stat-bar small" style="color:#ff88ff">Artifacts: ${[...p.belt.map(n => n + ' (worn)'), ...p.arts].join(', ')}</div>`;
+    return h;
+}
+function viewCreate() {
+    const p = S.p, left = 6 - Object.values(p.stats).reduce((s, v) => s + v - 10, 0);
+    let h = '<h2>THE ZONE</h2><p class="center muted">A solo survival RPG in the Exclusion Zone.</p>';
+    h += `<h3>Name</h3><input class="text-in" maxlength="20" value="${escH(p.name)}" oninput="S.p.name=this.value">`;
+    h += `<h3>Attributes — ${left} point(s) left (each 6–16)</h3>`;
+    const lbl = { S: 'Strength — doors, heavy objects', P: 'Perception — spotting, searching', A: 'Agility — attacks, anomaly avoidance', I: 'Intelligence — terminals, artifacts' };
+    ['S', 'P', 'A', 'I'].forEach(s => {
+        h += `<div class="row">${B('−', () => p.stats[s]--, { cls: 'stat-btn', dis: p.stats[s] <= 6 })}${B('+', () => p.stats[s]++, { cls: 'stat-btn', dis: p.stats[s] >= 16 || left <= 0 })}
+            <b>${s} ${p.stats[s]} (${sgn(statMod(p.stats[s]))})</b> <span class="muted">${lbl[s]}</span></div>`;
+    });
+    h += '<h3>Loadout</h3>';
+    for (const n in LOADOUTS) h += B(`<b>${n}</b>: ${LOADOUTS[n].desc}`, () => { S.loadout = n; }, { cls: 'btn' + (S.loadout === n ? ' sel' : '') });
+    h += '<h3>Starting perk</h3>';
+    for (const n in PERKS) h += B(`<b>${n}</b>: ${PERKS[n]}`, () => { S.startPerk = n; }, { cls: 'btn' + (S.startPerk === n ? ' sel' : '') });
+    h += '<br>' + B('ENTER THE ZONE', startGame, { dis: !S.startPerk || left < 0, style: 'border-color:#ffd700;color:#ffd700' });
+    if (!S.startPerk) h += '<p class="muted center">Choose a starting perk.</p>';
+    return h;
+}
+function viewDead() {
+    return `<h2 class="alert">YOU DIED IN THE ZONE</h2><p class="center">Your story ends on day ${S.w.day}, at ${S.w.zone}.</p>`
+        + B('Load last save', loadGame) + B('Create a new stalker', () => wipeSave(true));
+}
+function viewEndgame() {
+    let h = '<h2 class="alert">THE LAST GATE — THE SOURCE</h2><p class="center">The three data fragments resonate against the vault lock. Beyond the threshold hums the Source. The fate of the Zone is yours.</p>';
+    ENDINGS.forEach(([fac, title, desc]) => { h += B(`<b>${title}</b> (${fac}): ${desc}`, () => resolveEnding(fac)); });
+    return h;
+}
+function viewPerk() {
+    let h = '<div class="panel gold-b"><h2 class="gold">PERK AVAILABLE</h2>';
+    for (const n in PERKS) if (!has(n)) h += B(`<b>${n}</b>: ${PERKS[n]}`, () => selectPerk(n));
+    return h + '</div>';
+}
+function viewCamp() {
+    const c = S.c, area = c.area > 70 ? '<span class="good">Abundant</span>' : c.area > 30 ? '<span class="warn">Depleting</span>' : '<span class="alert">Picked clean</span>';
+    let h = `<h2>The Perimeter Camp</h2><p class="center muted">The fire is <b>${FIRE[c.fire]}</b>. Area scrap: ${area}.</p>`;
+    h += B('Scavenge the fence-line', scavenge);
+    if (c.fire === 0) h += B('Light the fire (5 Wood)', lightFire, { dis: count('Wood') < 5 });
+    else h += B('Stoke the fire (1 Wood)', stoke, { dis: count('Wood') < 1 || c.fire >= 4 });
+    if (c.lit && !c.shelter) h += B('Build a lean-to (15 Wood)', buildShelter, { dis: count('Wood') < 15 });
+    if (c.shelter) h += B('Sleep in the lean-to (+30 HP, rest; a new day dawns)', sleepCamp, { dis: c.fire === 0 });
+    if (c.shelter && c.fire === 0) h += '<p class="muted center">You can\'t sleep without a fire.</p>';
+    if (c.yefim) h += '<p class="center muted">Old Man Yefim sits by your fire, cleaning a revolver and humming.</p>';
+    else if (c.lit) h += '<p class="center muted">Someone has noticed your fire.</p>';
+    return h;
+}
+function viewZone() {
+    const z = S.w.zone, Z = ZONES[z];
+    if (meet) {
+        const e = meet.enc;
+        return `<h2>${z}</h2><div class="panel"><b>${e.faction} patrol</b>: ${e.units.map(u => `${u.name} (${WEAPONS[u.weapon.name].name})`).join(', ')}.<br>Reputation: ${S.w.rep[e.faction]}. They are not hostile.</div>`
+            + B('Let them pass', () => resolveMeet(false)) + B(`Open fire (−1 ${e.faction} rep, more per kill)`, () => resolveMeet(true), { style: 'border-color:#a33' });
+    }
+    let h = `<h2>${z}</h2><p class="center muted">Tier ${Z.tier} · Hazard ${Z.hazard} · ${Z.safe ? 'SAFE ZONE' : Z.indoor ? 'Indoor' : 'Outdoor'}</p><p class="center">${Z.desc}</p>`;
+    if (!Z.safe) {
+        if (Z.endgame) h += B('Advance on the Source', explore, { style: 'border-color:#f22;color:#f66' });
+        else h += B(`Explore the area (encounter chance ${encChance(Z)}%)`, explore);
+    }
+    if (Z.sub) {
+        if (S.w.found.includes(Z.sub)) h += B(`Enter hidden sub-node: ${Z.sub}`, () => travel(Z.sub), { style: 'border-color:#0ff;color:#0ff' });
+        else h += B(`Search for a hidden entry (Perception DC ${Z.subDC})`, searchHidden, { style: 'border-color:#f80' });
+    }
+    h += '<h3>Routes</h3>';
+    const p = S.p, risky = p.hunger < 1.5 || p.thirst < 1.5 || p.tired < 1;
+    Z.to.forEach(dest => {
+        const DZ = ZONES[dest], locked = DZ.endgame && !allFrags();
+        h += B(`Travel to ${dest} — ${DZ.safe ? 'SAFE' : `Tier ${DZ.tier}, Hazard ${DZ.hazard}`}${DZ.indoor && !DZ.safe ? ', indoor' : ''}${locked ? ' [needs 3 fragments]' : ''}`, () => travel(dest), { dis: locked });
+    });
+    h += `<p class="center small ${risky ? 'warn' : 'muted'}">Each trip: −1.5 Hunger, −1.5 Thirst, −1 Tiredness. Carried MREs are eaten on the march.${risky ? ' This trip will leave you STARVING (+1 AP on weapon actions).' : ''}</p>`;
+    return h;
+}
+function viewTrader(board) {
+    const fac = TRADER_FAC[board], pm = priceMod(board), p = S.p, pr = n => Math.round(n * pm);
+    let h = board === 'yefim' ? '<h2>Old Man Yefim</h2><p class="center muted">"Everything has a price, friend. Some prices are fair."</p>' : '<h3>The Bazaar (Sentinel Quartermaster)</h3>';
+    if (S.w.rep[fac] <= -3) return h + `<p class="alert center">${fac} won't trade with you.</p>`;
+    if (pm < 1) h += '<p class="good center small">Friend prices (−15%).</p>';
+    h += '<h3>Supplies (always stocked)</h3>';
+    BASELINE.forEach(n => { const c = pr(ITEMS[n].price); h += B(`${stockLabel({ kind: 'item', name: n })} — ${c} Ru`, () => { if (pay(c)) { addItem(n); log(`Bought ${n}.`); } }); });
+    if (p.backpack !== 'Small Canvas Sack' && p.backpack !== 'Tourist Frame') { const c = pr(300); h += B(`Small Canvas Sack (+10kg) — ${c} Ru`, () => { if (pay(c)) { p.backpack = 'Small Canvas Sack'; log('Bought a Small Canvas Sack.'); } }); }
+    h += '<h3>Ammunition</h3>';
+    const seen = new Set();
+    p.weapons.forEach(w => {
+        const wd = WEAPONS[w.name], key = wd.cal + '|' + wd.cat; if (!wd.cal || seen.has(key)) return; seen.add(key);
+        h += `<div class="row">${wd.cal} for ${CAT[wd.cat].label} (${CAT[wd.cat].box} rds/box): ${Object.keys(AMMO).map(t => { const c = pr(AMMO[t].price); return B(`${AMMO[t].short} ${c}`, () => buyAmmo(wd.cal, wd.cat, t, c), { cls: 'inv-btn' }); }).join(' ')}</div>`;
+    });
+    if (!seen.size) h += '<p class="muted small">No firearms to buy ammunition for.</p>';
+    h += `<h3>Today's stock</h3>`;
+    S.w.stock[board].forEach((it, i) => { const c = pr(basePrice(it)); h += B(`${stockLabel(it)} — ${c} Ru`, () => buyStock(board, i, c), { style: 'border-color:#8af' }); });
+    if (!S.w.stock[board].length) h += '<p class="muted small">Sold out until tomorrow.</p>';
+    h += '<h3>Sell</h3>';
+    let any = false;
+    Object.keys(p.inv).sort().forEach(n => { if (ITEMS[n].quest) return; any = true; h += `<div class="inv-item"><span>${n} ×${p.inv[n]}</span>${B(`Sell ${sellValue('item', n)}`, () => sellItem(n), { cls: 'inv-btn' })}</div>`; });
+    p.weapons.forEach(w => { if (w.id === p.eq) return; any = true; h += `<div class="inv-item"><span>${w.name} (${w.cond})</span>${B(`Sell ${sellValue('weapon', w.name, w.cond)}`, () => sellWeapon(w.id), { cls: 'inv-btn' })}</div>`; });
+    p.spareArmor.forEach((a, i) => { any = true; h += `<div class="inv-item"><span>${a.name} (${a.cond})</span>${B(`Sell ${sellValue('armor', a.name, a.cond)}`, () => sellArmor(i), { cls: 'inv-btn' })}</div>`; });
+    p.arts.forEach((n, i) => { if (ARTS[n].legend) return; any = true; h += `<div class="inv-item" style="color:#f8f"><span>${n}</span>${B(`Sell ${sellValue('art', n)}`, () => sellArt(i), { cls: 'inv-btn' })}</div>`; });
+    if (!any) h += '<p class="muted small">Nothing to sell (equipped gear and worn artifacts are not listed).</p>';
+    return h;
+}
+function viewHub() {
+    const p = S.p;
+    let h = '<h2>Scavenger\'s Hub [SAFE ZONE]</h2><p class="center muted">Container settlement. Joint Sentinel and trader stronghold.</p>';
+    h += '<h3>The Rusty Anchor Tavern</h3>';
+    h += B('Rent a secure cot and sleep (50 Ru) — full HP, rest, new day', restAtHub);
+    h += B('Buy a drink and gather rumors (20 Ru)', buyDrink);
+    h += '<h3>The Repair Yard (Technician)</h3>';
+    const rep = [];
+    p.weapons.forEach(w => { if (w.cond !== 'Working') rep.push([w, WEAPONS[w.name].tier]); });
+    if (p.armor && p.armor.cond !== 'Working') rep.push([p.armor, ARMOR[p.armor.name].tier]);
+    p.spareArmor.forEach(a => { if (a.cond !== 'Working') rep.push([a, ARMOR[a.name].tier]); });
+    rep.forEach(([o, t]) => { h += B(`Overhaul ${o.name} (${o.cond} → Working) — ${repairCost(t, o.cond)} Ru`, () => techRepair(o, t)); });
+    if (!rep.length) h += '<p class="muted small">All your gear is in Working order.</p>';
+    if (p.armor) h += `<p class="small muted">Armor mods on ${p.armor.name}: ${p.armor.mods.join(', ') || 'none'} (${p.armor.mods.length}/${ARMOR[p.armor.name].slots} slots)</p>`;
+    S.w.stock.mods.forEach((m, i) => { h += B(`Install ${m} (${MODS[m].desc}) — ${MODS[m].price} Ru`, () => installMod(i), { style: 'border-color:#8af', dis: !p.armor || p.armor.mods.includes(m) || p.armor.mods.length >= ARMOR[p.armor.name].slots }); });
+    return h + viewTrader('hub');
+}
+function viewQuests() {
+    let h = '<h2>Contracts</h2><h3>Active</h3>';
+    if (!S.w.quests.length) h += '<p class="muted">No active contracts.</p>';
+    S.w.quests.forEach(q => {
+        const done = q.objs.every(objDone);
+        h += `<div class="panel"><b>${q.title}</b> — ${q.zone || ''}<br><i class="muted">${q.desc}</i><br>`;
+        h += q.objs.map(o => `<span class="${objDone(o) ? 'good' : ''}">[${objDone(o) ? '✓' : ' '}] ${objText(o)}</span>`).join('<br>');
+        h += `<br>Given by: ${q.board === 'yefim' ? 'Old Man Yefim (Perimeter)' : `${q.giver} (Scavenger's Hub)`} · Reward: ${q.reward.ru} Ru, +${q.reward.rep} ${q.giver} rep${q.reward.detector ? ', ' + q.reward.detector : ''}`;
+        if (done) h += '<br>' + (atGiver(q) ? B('Turn in', () => turnIn(q), { cls: 'inv-btn' }) : '<span class="warn">Return to the quest giver to collect.</span>');
+        h += '</div>';
+    });
+    const boards = [];
+    if (S.w.zone === 'The Perimeter' && S.c.yefim) boards.push('yefim');
+    if (S.w.zone === "Scavenger's Hub") boards.push('hub');
+    boards.forEach(b => {
+        h += `<h3>${b === 'yefim' ? "Yefim's jobs" : 'Hub contract board'}</h3>`;
+        const list = [...S.w.avail[b]];
+        if (b === 'yefim') { const a = arcQuest(); if (a && !S.w.quests.some(q => q.id === a.id)) list.unshift(a); }
+        list.forEach(q => { h += B(`${q.arc ? '★ ' : ''}${q.title} — ${q.reward.ru} Ru (${q.giver})`, () => acceptQuest(q, b)); });
+        if (!list.length) h += '<p class="muted small">Nothing new today.</p>';
+    });
+    if (!boards.length) h += '<p class="muted small">Contract boards: Old Man Yefim at the Perimeter, and the Hub.</p>';
+    return h;
+}
+function viewSheet() {
+    const p = S.p, d0 = D(), w = S.w;
+    let h = `<h2>${escH(p.name)} — ${RANKS[p.rank].name}</h2>`;
+    h += `<div class="panel">HP ${Math.floor(p.hp)}/${d0.maxHp}${p.temp ? ` (+${p.temp} temp)` : ''} · AP ${d0.ap} · MP ${d0.mpBase} · AC ${playerBaseAC()}<br>`
+        + `Phys-DR ${pct(d0.phys)}${d0.physRaw > .75 ? ' (cap)' : ''} · Anom-DR ${pct(d0.anom)}${d0.pen ? ` (artifacts −${pct(d0.pen)})` : ''}<br>`
+        + `Carry ${weight()}/${d0.carry}kg · Detector: ${p.detector || 'none'} · Pack: ${p.backpack || 'none'}</div>`;
+    if (p.rank < 6) {
+        h += `<h3>Next rank: ${RANKS[p.rank + 1].name}${PERK_RANKS.includes(p.rank + 1) ? ' (+perk)' : ''}</h3>`;
+        MILESTONES[p.rank + 1].forEach(([t, f]) => { h += `<div class="row ${f() ? 'good' : 'muted'}">[${f() ? '✓' : ' '}] ${t}</div>`; });
+    }
+    h += '<h3>Weapons</h3>';
+    p.weapons.forEach(x => {
+        const wd = WEAPONS[x.name], eq = x.id === p.eq;
+        let btns = '';
+        if (!eq) btns += B(mode === 'combat' ? `Swap (${swapCost(x)} AP)` : 'Equip', () => equipWeapon(x.id), { cls: 'inv-btn' });
+        if (wd.cal) btns += B(`Ammo: ${AMMO[x.ammo].short} ▸`, () => cycleAmmo(x), { cls: 'inv-btn' });
+        if ((x.cond === 'Damaged' || x.cond === 'Broken') && count('Field Repair Kit')) btns += B('Repair kit', () => useRepairKit(x), { cls: 'inv-btn' });
+        h += `<div class="inv-item" style="${eq ? 'color:#4f4' : ''}"><span>${eq ? '[Eq] ' : ''}${x.name} (${x.cond}) — ${CAT[wd.cat].label}, ${wd.dmg} dmg, rng ${wd.range}${wd.cal ? `, ${x.mag}/${wd.cap} ${wd.cal} ${AMMO[x.ammo].short}` : ''}</span><span>${btns}</span></div>`;
+    });
+    h += '<h3>Armor</h3>';
+    if (p.armor) {
+        const a = ARMOR[p.armor.name];
+        h += `<div class="inv-item" style="color:#8af"><span>[Worn] ${p.armor.name} (${p.armor.cond}) — Phys ${pct(a.phys)}, Anom ${pct(a.anom)}, ${a.belt} belt, MP ${a.mp}, mods: ${p.armor.mods.join(', ') || 'none'}</span>`
+            + ((p.armor.cond === 'Damaged' || p.armor.cond === 'Broken') && count('Field Repair Kit') ? B('Repair kit', () => useRepairKit(p.armor), { cls: 'inv-btn' }) : '') + '</div>';
+    } else h += '<div class="muted small">No armor.</div>';
+    p.spareArmor.forEach((a, i) => { h += `<div class="inv-item"><span>${a.name} (${a.cond})</span>${B('Wear', () => wearArmor(i), { cls: 'inv-btn', dis: mode === 'combat' })}</div>`; });
+    h += `<h3>Artifact belt (${p.belt.length}/${d0.beltSlots})</h3>`;
+    p.belt.forEach((n, i) => { h += `<div class="inv-item" style="color:#f8f"><span>${n} — ${artDesc(n)}</span>${B('Remove', () => removeArt(i), { cls: 'inv-btn' })}</div>`; });
+    p.arts.forEach((n, i) => { h += `<div class="inv-item"><span>${n} — ${artDesc(n)}</span>${B('Wear', () => wearArt(i), { cls: 'inv-btn', dis: p.belt.length >= d0.beltSlots })}</div>`; });
+    if (!p.belt.length && !p.arts.length) h += '<div class="muted small">No artifacts. Step into anomalies and search them.</div>';
+    h += '<h3>Perks</h3>' + p.perks.map(n => `<div class="row">${n}: <span class="muted">${PERKS[n]}</span></div>`).join('');
+    h += '<h3>World State</h3>';
+    h += `<div class="row">Day ${w.day} · Visited: ${w.visited.join(', ')}</div>`;
+    h += `<div class="row">Hidden connections: ${w.found.join(', ') || 'none'}</div>`;
+    h += '<div class="row">' + Object.keys(w.rep).map(f => { const r = w.rep[f], c = r >= 3 ? '#4f4' : r <= -3 || hostileFaction(f) ? '#f44' : '#888'; return `<span>${f}: <span style="color:${c}">${r}</span></span>`; }).join(' · ') + '</div>';
+    h += '<div class="row muted">Faction goals: ' + Object.keys(w.goals).map(f => `${f} ${'■'.repeat(w.goals[f])}${'□'.repeat(6 - w.goals[f])}`).join(' · ') + '</div>';
+    return h;
+}
+function viewCombat() {
+    const p = S.p, w = eqW(), wd = eqWD(), hostile = hostilesLeft(), mine = myTurn();
+    let h = `<h2 class="${hostile ? 'alert' : ''}">${hostile ? 'TACTICAL COMBAT' : 'EXPLORING'} — ${C.zone.toUpperCase()}</h2>`;
+    h += `<div class="apbar">Turn ${C.turn} · AP ${C.ap}/${C.apMax} · MP ${C.mp}/${C.mpMax} · AC ${playerBaseAC()}${C.takeCover ? ' (+2 taking cover)' : ''}${C.evasive ? ' (+2 vs melee)' : ''}</div>`;
+    if (w) h += `<div class="small center">${w.name} (${w.cond})${wd.cal ? ` — ${w.jammed ? '<span class="alert">JAMMED</span>' : `${w.mag}/${wd.cap} ${AMMO[w.ammo].short}`}, range ${effRange(w)}` : ' — melee'}</div>`;
+    const flags = [];
+    if (p.st.prone) flags.push('<span class="alert">PRONE</span>');
+    if (C.suppressed) flags.push('<span class="warn">SUPPRESSED −2</span>');
+    if (C.aim) flags.push(`<span class="good">AIM +${C.aim}</span>`);
+    if (C.advNext) flags.push('<span class="good">ADVANTAGE next attack</span>');
+    if (starving()) flags.push('<span class="alert">STARVING +1 AP</span>');
+    const ping = detectorPing(); if (ping !== null) flags.push(`<span class="warn">Detector beeping: anomaly within ${ping} tile(s)</span>`);
+    if (flags.length) h += `<div class="small center">${flags.join(' · ')}</div>`;
+    if (C.pending) h += `<div class="warn small center">Click a tile to throw the ${C.pending} (within 8, in sight). ${B('Cancel', () => { C.pending = null; }, { cls: 'inv-btn' })}</div>`;
+    h += gridHTML();
+    h += '<div class="small muted center">@ you · digits: hostiles (click to target) · # wall · C light cover · = hard cover · ^ high ground · ~ rubble · D door · T terminal · S stash · ! anomaly · shaded: reachable</div>';
+    C.units.forEach((u, i) => {
+        if (!u.alive || u.gone) return;
+        const seen = visible(u), sel = u.id === C.target;
+        let info;
+        if (!seen) info = `[${i + 1}] Something shimmers — cloaked (Perception DC ${u.m.cloak} to target at range)`;
+        else if (u.kind === 'human') info = `[${i + 1}] ${u.name} · ${u.role} · ${u.hp}/${u.maxHp} HP · ${u.surrendered ? 'SURRENDERED' : u.morale} · ${u.weapon.name} · ${ARMOR[u.armor.name].name} · dist ${pDist(u)}`;
+        else info = `[${i + 1}] ${u.name} (T${u.tier}, ${u.m.beh}) · ${u.hp}/${u.maxHp} HP${u.staggered ? ' · STAGGERED' : ''}${u.leapReady ? ' · CROUCHING TO LEAP' : ''} · dist ${pDist(u)}`;
+        if (u.surrendered) h += `<div class="row c-dim">${info}</div>`;
+        else h += `<div class="row">${B(sel ? '◎' : '○', () => { C.target = u.id; }, { cls: 'inv-btn' })} <span class="${u.kind === 'human' ? 'alert' : 'warn'}">${info}</span></div>`;
+    });
+    if (C.cleared || !C.hadEnemies) h += combatLootPanel();
+    if (!mine) return h;
+    const dis = p.st.prone;
+    h += '<div class="controls">' + [['↑ W', 0, -1], ['↓ S', 0, 1], ['← A', -1, 0], ['→ D', 1, 0]].map(([l, dx, dy]) => B(l, () => stepPlayer(dx, dy), { cls: 'c-btn', dis: dis || C.mp <= 0 })).join('') + '</div>';
+    let c1 = '';
+    if (w && hostile) {
+        if (w.jammed) c1 += B(`Clear Jam (${jamCost()} AP)`, clearJam, { cls: 'c-btn red' });
+        else {
+            c1 += B(`${wd.cat === 'melee' ? 'Strike' : 'Shoot'} (${attackCost(false)} AP) [F]`, () => playerAttack(false), { cls: 'c-btn red', dis });
+            if (burstOf(wd)) c1 += B(`Burst (${attackCost(true)} AP) [B]`, () => playerAttack(true), { cls: 'c-btn red', dis });
+        }
+        c1 += B(`Aim (1 AP)`, aim, { cls: 'c-btn', dis });
+    }
+    if (w && wd.cal) {
+        c1 += B(`Reload (${reloadCost()} AP) [R]`, reload, { cls: 'c-btn yel', dis });
+        c1 += B(`Ammo: ${AMMO[w.ammo].short} ▸`, () => cycleAmmo(w), { cls: 'c-btn yel' });
+    }
+    p.weapons.forEach(x => { if (x.id !== p.eq) c1 += B(`Swap: ${x.name} (${swapCost(x)} AP)`, () => equipWeapon(x.id), { cls: 'c-btn', dis }); });
+    h += `<div class="controls">${c1}</div>`;
+    let c2 = '';
+    if (dis) c2 += B('Stand up (1 AP)', standUp, { cls: 'c-btn blue' });
+    if (hostile) {
+        c2 += B('Take Cover (2 AP)', takeCover, { cls: 'c-btn blue', dis: dis || !playerHasCover() });
+        c2 += B('Evasive (2 AP)', evasive, { cls: 'c-btn blue', dis });
+        if (curTarget() && curTarget().kind === 'human') c2 += B('Intimidate (2 AP)', intimidate, { cls: 'c-btn blue', dis });
+        ['Frag Grenade', 'Smoke Grenade', 'Flashbang'].forEach(g => { if (count(g)) c2 += B(`${g} ×${count(g)} (${wpnCost(2)} AP)`, () => { C.pending = g; }, { cls: 'c-btn blue', dis }); });
+        if (C.units.some(u => active(u) && u.leapReady)) c2 += B('Dodge leap (1 AP)', dodgeLeap, { cls: 'c-btn blue', dis: dis || !!C.dodge });
+    }
+    c2 += B('Search anomaly (2 AP)', searchAnomaly, { cls: 'c-btn pur', dis: dis || !adjacentTile((x, y) => { const a = C.anoms[k(x, y)]; return a && a.resolved && !a.searched; }) });
+    c2 += B('Interact D/T/S (2 AP)', interact, { cls: 'c-btn pur', dis: dis || !adjacentTile((x, y) => 'DTS'.includes(tileAt(x, y)) && tileAt(x, y) !== '#') });
+    h += `<div class="controls">${c2}</div>`;
+    let c3 = '';
+    if (hostile) c3 += B('Flee the area (map edge)', () => leaveArea(true), { cls: 'c-btn', dis: !onEdge() || dis });
+    else c3 += B('Leave the area', () => leaveArea(false), { cls: 'c-btn', style: 'border-color:#4f4' });
+    c3 += B('End Turn [E]', endTurn, { cls: 'c-btn', style: 'background:#555' });
+    h += `<div class="controls">${c3}</div>`;
+    return h;
+}
+function combatLootPanel() {
+    let h = '';
+    const pris = C.units.filter(u => u.surrendered && !u.resolved);
+    pris.forEach(u => {
+        h += `<div class="panel gold-b">${uname(u)} has surrendered.<div class="row">`
+            + (u.asked ? '' : B('Interrogate', () => prisoner(u, 'interrogate'), { cls: 'inv-btn' }))
+            + B('Take their gear', () => prisoner(u, 'loot'), { cls: 'inv-btn' })
+            + B('Let them go', () => prisoner(u, 'free'), { cls: 'inv-btn' })
+            + B('Execute', () => prisoner(u, 'execute'), { cls: 'inv-btn' }) + '</div></div>';
+    });
+    const loot = C.loot.filter(l => !l.taken);
+    if (loot.length) {
+        h += '<div class="panel"><b>Loot</b> ' + B('Take all', () => loot.forEach(takeLoot), { cls: 'inv-btn' });
+        loot.forEach(l => { h += `<div class="inv-item"><span>${lootLabel(l)}</span>${B('Take', () => takeLoot(l), { cls: 'inv-btn' })}</div>`; });
+        h += '</div>';
+    }
+    return h;
+}
+function gridHTML() {
+    const reach = myTurn() && !C.pending && !S.p.st.prone ? dijkstra(C.px, C.py, playerPass) : null;
+    let h = '<div class="grid">';
+    for (let y = 0; y < C.H; y++) {
+        h += '<div class="grow">';
+        for (let x = 0; x < C.W; x++) {
+            let ch = C.map[y][x], cls = TILE_CLS[ch] || '';
+            const a = C.anoms[k(x, y)];
+            if (a && a.revealed) { ch = '!'; cls = 'c-anom' + (a.searched ? ' c-dim' : ''); }
+            if (smokeAt(x, y)) cls += ' c-smoke';
+            const ui = C.units.findIndex(u => onMap(u) && u.x === x && u.y === y);
+            if (x === C.px && y === C.py) { ch = '@'; cls = 'c-player'; }
+            else if (ui >= 0 && visible(C.units[ui])) {
+                const u = C.units[ui]; ch = String(ui + 1);
+                cls = u.surrendered ? 'c-dim' : u.kind === 'human' ? 'c-human' : 'c-mutant';
+                if (u.id === C.target) cls += ' c-target';
+            } else if (reach) { const dd = reach.dist[y * C.W + x]; if (dd > 0 && dd <= C.mp) cls += ' c-reach'; }
+            h += `<span class="cell ${cls}" data-x="${x}" data-y="${y}">${ch}</span>`;
+        }
+        h += '</div>';
+    }
+    return h + '</div>';
+}
+
+// ===================== INPUT =====================
+function afterAction() { if (mode === 'combat' && C) checkClear(); render(); }
+document.addEventListener('click', e => {
+    const b = e.target.closest('[data-a]');
+    if (b) { if (b.disabled) return; const f = H[+b.dataset.a]; if (f) { freshLog(); f(); afterAction(); } return; }
+    const cell = e.target.closest('.cell');
+    if (cell && mode === 'combat') { freshLog(); gridClick(+cell.dataset.x, +cell.dataset.y); afterAction(); }
+});
+document.addEventListener('keydown', e => {
+    if (mode !== 'combat' || e.target.tagName === 'INPUT') return;
+    const key = e.key.toLowerCase();
+    const mv = { w: [0, -1], arrowup: [0, -1], s: [0, 1], arrowdown: [0, 1], a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0] }[key];
+    freshLog();
+    if (mv) { e.preventDefault(); stepPlayer(...mv); }
+    else if (key === 'e') endTurn();
+    else if (key === 'f') playerAttack(false);
+    else if (key === 'b' && eqWD() && burstOf(eqWD())) playerAttack(true);
+    else if (key === 'r') reload();
+    else return;
+    afterAction();
+});
+
+// ===================== HEARTBEAT (real-time, out of combat) =====================
+setInterval(() => {
+    tick++;
+    if (mode !== 'world') return;
+    const c = S.c, p = S.p, d0 = D();
+    let dirty = false;
+    if (tick % 2 === 0 && c.area < 100) c.area++;
+    if (c.fire > 0 && tick % 90 === 0) { c.fire--; log(c.fire ? `The fire is ${FIRE[c.fire]}.` : 'The fire has gone out.'); dirty = true; }
+    if (tick % 10 === 0) {
+        if (d0.regen && p.hp < d0.maxHp) { p.hp = Math.min(d0.maxHp, p.hp + d0.regen); dirty = true; }
+        if ((p.st.bleed || p.st.toxic) && !d0.noBleed && d0.bleedDmg > 0) { p.hp -= d0.bleedDmg; log(`You are bleeding (−${d0.bleedDmg} HP). Use a Bandage.`, 'alert'); dirty = true; }
+        if (p.st.rad) { p.hp -= 1; dirty = true; }
+        if (p.hp <= 0) { die(); render(); return; }
+    }
+    if (tick % 30 === 0) saveGame(true);
+    if (dirty) render();
+}, 1000);
+
+// ===================== BOOT =====================
+S = freshState();
+let hasSave = false;
+try { hasSave = !!localStorage.getItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
+if (!(hasSave && loadGame())) { mode = 'create'; render(); }
+</script>
+</body>
+</html>
