@@ -76,6 +76,50 @@
     body.minimalist .btn:hover, body.minimalist .tab-btn.active, body.minimalist .c-btn:hover:not(:disabled) { background-color: #fff !important; color: #000 !important; }
     body.minimalist .cell, body.minimalist .apbar { color: #fff !important; }
 
+    /* Work mode: a plain light chat-assistant look. The log is the conversation, the current screen is the latest reply. */
+    .work-only { display: none; }
+    body.work { background: #fff; color: #1f2328; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 0; }
+    body.work .work-only { display: block; }
+    body.work #game-container { flex-direction: column; max-width: 760px; margin: 0 auto; gap: 0; overflow-y: auto; padding: 0 16px; }
+    body.work .top-bar { position: sticky; top: 0; order: 0; background: #fff; border-bottom: 1px solid #e5e7eb; padding: 10px 0; align-items: center; }
+    body.work .top-bar::before { content: attr(data-head); margin-right: auto; font-weight: 600; }
+    body.work .top-bar button { background: none; border: none; color: #6b7280; font-family: inherit; font-size: 0.8em; white-space: nowrap; }
+    body.work .top-bar button:hover { color: #111; }
+    body.work .column { flex: none; padding: 8px 0; max-width: none; border: none; overflow: visible; }
+    body.work #left-col { order: 1; display: none; border: none; max-width: none; background: #f6f7f9; border-radius: 8px; padding: 8px 12px; margin-top: 8px; }
+    body.work.ctx #left-col { display: flex; }
+    body.work #right-col { order: 2; border: none; max-width: none; }
+    body.work #right-col h2 { display: none; }
+    body.work #log-content { display: flex; flex-direction: column-reverse; max-height: 45vh; overflow-y: auto; }
+    body.work .log-entry { background: #f4f4f5; border-radius: 12px; padding: 8px 12px; margin: 4px 0; max-width: 85%; font-size: 0.9em; opacity: 1; color: #1f2328 !important; text-shadow: none; }
+    body.work .log-entry.user { align-self: flex-end; background: #e8eefc; }
+    body.work #mid-col { order: 3; align-items: stretch; }
+    body.work #view { align-items: stretch; }
+    body.work #empty { order: 3; text-align: center; font-size: 1.5em; color: #374151; padding-top: 28vh; flex: 1; display: none; }
+    body.work.hide #empty { display: block; }
+    body.work.hide #left-col, body.work.hide #right-col, body.work.hide #mid-col { display: none; }
+    body.work #composer { order: 4; position: sticky; bottom: 0; background: #fff; padding: 10px 0 16px; margin-top: auto; }
+    body.work #composer input { width: 100%; border: 1px solid #d1d5db; border-radius: 20px; padding: 10px 16px; background: #fff; color: #1f2328; font: inherit; outline: none; }
+    body.work .btn, body.work .c-btn, body.work .tab-btn, body.work .inv-btn, body.work .stat-btn { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 10px; font-family: inherit; }
+    body.work .btn { width: 100%; text-align: left; }
+    body.work .btn:hover:not(:disabled), body.work .c-btn:hover:not(:disabled), body.work .tab-btn:hover, body.work .inv-btn:hover:not(:disabled) { background: #f3f4f6; color: #111; border-color: #9ca3af; }
+    body.work .btn.sel { border-color: #2563eb; color: #2563eb; }
+    body.work .tab-btn.active { background: #f3f4f6; color: #111; border-color: #9ca3af; }
+    body.work .nav-tabs, body.work h2, body.work h3, body.work .inv-item { border-color: #e5e7eb; }
+    body.work h2 { text-align: left; color: #111; text-transform: none !important; border: none; font-size: 1.05em; }
+    body.work h3 { color: #6b7280; text-transform: none; }
+    body.work p { width: 100%; }
+    body.work .alert, body.work .warn, body.work .good, body.work .gold, body.work .day, body.work .emission, body.work .apbar { color: inherit; text-shadow: none; }
+    body.work .muted, body.work .dim { color: #6b7280; }
+    body.work [style*="color"] { color: inherit !important; }
+    body.work .panel { border-color: #e5e7eb; border-radius: 8px; }
+    body.work .text-in { background: #fff; color: #1f2328; border-color: #d1d5db; }
+    body.work .grid { background: #f6f8fa; border-color: #e5e7eb; border-radius: 6px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.95em; }
+    body.work .cell { color: #8c959f; } body.work .c-wall { color: #6e7781; } body.work .c-player { color: #111; }
+    body.work .c-human { color: #cf222e; } body.work .c-mutant { color: #9a6700; } body.work .c-door, body.work .c-anom { color: #8250df; } body.work .c-term, body.work .c-high { color: #0550ae; }
+    body.work .c-cover, body.work .c-hard, body.work .c-rubble, body.work .c-trench { color: #57606a; }
+    body.work .c-target { background: #ffebe9; } body.work .c-smoke { background: #eaeef2; } body.work .c-reach { background: #eef6ee; }
+
     @media (max-width: 900px) {
         body { height: auto; overflow: auto; padding: 8px; }
         #game-container { flex-direction: column; }
@@ -91,7 +135,9 @@
         <button onclick="loadGame()" data-en="[Load]">[Load]</button>
         <button onclick="wipeSave()" data-en="[Wipe]">[Wipe]</button>
         <button onclick="toggleTheme()" data-en="[Contrast]">[Contrast]</button>
-        <button id="lang-btn" onclick="setLang(LANG === 'pt' ? 'en' : 'pt')">[PT-BR]</button>
+        <button id="lang-btn" onclick="setLang(LANG === 'pt' ? 'en' : 'pt')" data-en="[PT-BR]">[PT-BR]</button>
+        <button onclick="setWork(!WORK)" data-en="[Work]">[Work]</button>
+        <button class="work-only" onclick="document.body.classList.toggle('ctx')" data-en="[Details]">[Details]</button>
     </div>
     <div class="column" id="left-col"></div>
     <div class="column" id="mid-col">
@@ -102,6 +148,8 @@
         <h2 id="chronicle-title">Zone Chronicle</h2>
         <div id="log-content"></div>
     </div>
+    <div id="empty" class="work-only"></div>
+    <div id="composer" class="work-only"><input id="composer-in" onkeydown="if (event.key === 'Enter' &amp;&amp; this.value.trim()) { log(this.value.trim(), 'user'); this.value = ''; }"></div>
 </div>
 
 <script>
@@ -555,6 +603,7 @@ const PT = {
     'somewhere in': 'em algum lugar de', 'Sharp eyes needed': 'É preciso olhos atentos', 'is looking for someone reliable.': 'procura alguém confiável.', 'Mutants are migrating through': 'Mutantes estão migrando por',
     'working with you': 'trabalhando com você', 'alive': 'vivo', 'friendly': 'amigável', 'hostile': 'hostil', 'grudge': 'rancor', 'fled': 'fugiu', 'owes you, or resents you': 'te deve, ou te odeia', 'let go': 'libertado', 'executed': 'executado', 'Tiredness restored': 'Cansaço restaurado',
     'You are bleeding': 'Você está sangrando', 'Use a Bandage.': 'Use uma Bandagem.',
+    '[Work]': '[Trabalho]', '[Details]': '[Detalhes]', 'New chat': 'Nova conversa', 'Assistant': 'Assistente', 'Message the assistant…': 'Envie uma mensagem ao assistente…', 'How can I help you today?': 'Como posso ajudar você hoje?',
 };
 // Word-order rules that a phrase table can't express. Run before the phrase pass.
 const PT_RX = [
@@ -586,10 +635,7 @@ function setLang(l) {
     LANG = l;
     try { localStorage.setItem('the_zone_lang', l); } catch (e) { /* storage blocked */ }
     document.documentElement.lang = l === 'pt' ? 'pt-BR' : 'en';
-    document.title = l === 'pt' ? 'A ZONA — RPG de Sobrevivência Solo' : 'THE ZONE — Solo Survival RPG';
-    document.querySelectorAll('.top-bar button[data-en]').forEach(b => { b.textContent = tr(b.dataset.en); });
-    $('lang-btn').textContent = l === 'pt' ? '[EN]' : '[PT-BR]';
-    $('chronicle-title').textContent = tr('Zone Chronicle');
+    chrome();
     document.querySelectorAll('.log-entry').forEach(e => { e.textContent = tr(e.dataset.en); });
     render();
 }
@@ -1444,6 +1490,25 @@ function wipeSave(skipConfirm) {
     render();
 }
 function toggleTheme() { document.body.classList.toggle('minimalist'); }
+// Work mode: chat-assistant skin (CSS body.work); Esc blanks the screen to an empty chat.
+let WORK = false;
+try { WORK = localStorage.getItem('the_zone_work') === '1'; } catch (e) { /* storage blocked */ }
+function setWork(on) {
+    WORK = on;
+    try { localStorage.setItem('the_zone_work', on ? '1' : '0'); } catch (e) { /* storage blocked */ }
+    document.body.classList.toggle('work', on); document.body.classList.remove('hide');
+    chrome();
+}
+// Page title and fixed labels for the current language and mode.
+function chrome() {
+    document.title = WORK ? tr('New chat') : LANG === 'pt' ? 'A ZONA — RPG de Sobrevivência Solo' : 'THE ZONE — Solo Survival RPG';
+    $('lang-btn').dataset.en = LANG === 'pt' ? '[EN]' : '[PT-BR]';
+    document.querySelectorAll('.top-bar button[data-en]').forEach(b => { const t = tr(b.dataset.en); b.textContent = WORK ? t.slice(1, -1) : t; });
+    document.querySelector('.top-bar').dataset.head = tr('Assistant');
+    $('chronicle-title').textContent = tr('Zone Chronicle');
+    $('composer-in').placeholder = tr('Message the assistant…');
+    $('empty').textContent = tr('How can I help you today?');
+}
 
 // ===================== CHARACTER CREATION =====================
 function startGame() {
@@ -3613,6 +3678,7 @@ document.addEventListener('click', e => {
     if (cell && mode === 'combat') { freshLog(); gridClick(+cell.dataset.x, +cell.dataset.y); afterAction(); }
 });
 document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && WORK) { document.body.classList.toggle('hide'); return; }
     if (mode !== 'combat' || e.target.tagName === 'INPUT') return;
     const key = e.key.toLowerCase();
     const mv = { w: [0, -1], arrowup: [0, -1], s: [0, 1], arrowdown: [0, 1], a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0] }[key];
@@ -3649,6 +3715,7 @@ S = freshState();
 let hasSave = false;
 try { hasSave = !!localStorage.getItem(SAVE_KEY); } catch (e) { /* storage blocked */ }
 if (!(hasSave && loadGame())) { mode = 'create'; render(); }
+setWork(WORK);
 if (LANG === 'pt') setLang('pt');
 </script>
 </body>
