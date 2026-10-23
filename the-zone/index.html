@@ -86,8 +86,7 @@
     body.work .top-bar button { background: none; border: none; color: #6b7280; font-family: inherit; font-size: 0.8em; white-space: nowrap; }
     body.work .top-bar button:hover { color: #111; }
     body.work .column { flex: none; padding: 8px 0; max-width: none; border: none; overflow: visible; }
-    body.work #left-col { order: 1; display: none; border: none; max-width: none; background: #f6f7f9; border-radius: 8px; padding: 8px 12px; margin-top: 8px; }
-    body.work.ctx #left-col { display: flex; }
+    body.work #left-col { display: none; }
     body.work #right-col { order: 2; border: none; max-width: none; }
     body.work #right-col h2 { display: none; }
     body.work #log-content { display: flex; flex-direction: column-reverse; max-height: 45vh; overflow-y: auto; }
@@ -144,7 +143,6 @@
         <button onclick="toggleTheme()" data-en="[Contrast]">[Contrast]</button>
         <button id="lang-btn" onclick="setLang(LANG === 'pt' ? 'en' : 'pt')" data-en="[PT-BR]">[PT-BR]</button>
         <button onclick="setWork(!WORK)" data-en="[Work]">[Work]</button>
-        <button class="work-only" onclick="document.body.classList.toggle('ctx')" data-en="[Details]">[Details]</button>
     </div>
     <div class="column" id="left-col"></div>
     <div class="column" id="mid-col">
@@ -610,7 +608,8 @@ const PT = {
     'somewhere in': 'em algum lugar de', 'Sharp eyes needed': 'É preciso olhos atentos', 'is looking for someone reliable.': 'procura alguém confiável.', 'Mutants are migrating through': 'Mutantes estão migrando por',
     'working with you': 'trabalhando com você', 'alive': 'vivo', 'friendly': 'amigável', 'hostile': 'hostil', 'grudge': 'rancor', 'fled': 'fugiu', 'owes you, or resents you': 'te deve, ou te odeia', 'let go': 'libertado', 'executed': 'executado', 'Tiredness restored': 'Cansaço restaurado',
     'You are bleeding': 'Você está sangrando', 'Use a Bandage.': 'Use uma Bandagem.',
-    '[Work]': '[Trabalho]', '[Details]': '[Detalhes]', 'New chat': 'Nova conversa', 'Assistant': 'Assistente', 'Message the assistant…': 'Envie uma mensagem ao assistente…', 'How can I help you today?': 'Como posso ajudar você hoje?',
+    '[Work]': '[Trabalho]', 'New chat': 'Nova conversa', 'Assistant': 'Assistente', 'Message the assistant…': 'Envie uma mensagem ao assistente…', 'How can I help you today?': 'Como posso ajudar você hoje?',
+    'Hide inventory': 'Ocultar inventário',
 };
 // Word-order rules that a phrase table can't express. Run before the phrase pass.
 const PT_RX = [
@@ -3249,15 +3248,23 @@ function render() {
     const tabsEl = $('main-tabs'), view = $('view');
     if (mode !== 'world') {
         tabsEl.innerHTML = '';
-        view.innerHTML = { create: viewCreate, dead: viewDead, endgame: viewEndgame, combat: viewCombat }[mode]();
+        view.innerHTML = (mode === 'combat' ? workBar() : '') + { create: viewCreate, dead: viewDead, endgame: viewEndgame, combat: viewCombat }[mode]();
         trDom($('left-col')); trDom(view);
         return;
     }
     const tabs = availableTabs();
     if (!tabs.includes(tab)) tab = tabs.includes('zone') ? 'zone' : tabs[0];
     tabsEl.innerHTML = tabs.map(t => B(tabLabel(t), () => { tab = t; }, { cls: 'tab-btn' + (t === tab ? ' active' : '') })).join('');
-    view.innerHTML = (S.p.pendingPerks > 0 ? viewPerk() : '') + { camp: viewCamp, zone: viewZone, trade: viewTrade, hub: viewHub, quests: viewQuests, sheet: viewSheet }[tab]();
+    view.innerHTML = workBar() + (S.p.pendingPerks > 0 ? viewPerk() : '') + { camp: viewCamp, zone: viewZone, trade: viewTrade, hub: viewHub, quests: viewQuests, sheet: viewSheet }[tab]();
     trDom($('left-col')); trDom(tabsEl); trDom(view);
+}
+// Work mode hides the left column, so money/HP and the inventory panel live in the view instead.
+let invOpen = false;
+function workBar() {
+    if (!WORK) return '';
+    const p = S.p;
+    return `<div class="row">${B(invOpen ? 'Hide inventory' : 'Inventory', () => { invOpen = !invOpen; }, { cls: 'inv-btn' })} <span class="muted">Ru: ${p.ru} · HP: ${Math.floor(p.hp)}/${D().maxHp}</span></div>`
+        + (invOpen ? `<div class="panel">${renderLeft()}</div>` : '');
 }
 const survCol = v => (v <= 0.05 ? '#f44' : v < 3 ? '#fa4' : '#b0b0b0');
 function renderLeft() {
@@ -3547,7 +3554,9 @@ function viewSheet() {
         const a = ARMOR[p.armor.name];
         h += `<div class="inv-item" style="color:#8af"><span>[Worn] ${p.armor.name} (${p.armor.cond})${p.armor.upg.length ? ` [${p.armor.upg.join(', ')}]` : ''} — Phys ${pct(a.phys)}, Anom ${pct(a.anom)}, ${a.belt} belt, MP ${a.mp}</span>`
             + ((p.armor.cond === 'Damaged' || p.armor.cond === 'Broken') && count('Field Repair Kit') ? B('Repair kit', () => useRepairKit(p.armor), { cls: 'inv-btn' }) : '') + '</div>';
-        h += `<div class="row">Mods (${p.armor.mods.length}/${a.slots}): ${p.armor.mods.map(m => `${m} ${B('Remove', () => removeMod(m), { cls: 'inv-btn' })}`).join(' ') || '<span class="muted">none — fit mods from your inventory</span>'}</div>`;
+        h += `<div class="row">Mods (${p.armor.mods.length}/${a.slots}): ${p.armor.mods.map(m => `${m} ${B('Remove', () => removeMod(m), { cls: 'inv-btn' })}`).join(' ') || '<span class="muted">none</span>'}</div>`;
+        const spare = Object.keys(p.inv).filter(n => MODS[n]);
+        if (spare.length) h += `<div class="row">Fit: ${spare.map(m => B(`${m} (${p.inv[m]})`, () => fitMod(m), { cls: 'inv-btn', dis: p.armor.mods.length >= a.slots || p.armor.mods.includes(m) })).join(' ')}</div>`;
     } else h += '<div class="muted small">No armor.</div>';
     p.spareArmor.forEach((a, i) => { h += `<div class="inv-item"><span>${a.name} (${a.cond})</span>${B('Wear', () => wearArmor(i), { cls: 'inv-btn' })}</div>`; });
     h += `<h3>Artifact belt (${p.belt.length}/${d0.beltSlots})</h3>`;
