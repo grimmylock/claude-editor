@@ -91,7 +91,23 @@ qErr.forEach(fail);
 await ev(() => { S.w.zone = 'The Perimeter'; S.w.offers = {}; tab = 'quests'; render(); });
 await page.click('text=★ Fence Mending');
 await ev(() => { S.w.quests[0].comp = 1; explore('Checkpoint Gate'); render(); });
-await ev(() => { if (mode === 'combat') { C.units.forEach(u => { u.alive = false; }); checkClear(); leaveArea(false); } render(); });
+// Leaving without reaching the '?' must not complete the objective; interacting with it must.
+const site = await ev(() => {
+    if (mode !== 'combat') return 'not on map';
+    C.units.forEach(u => { u.alive = false; }); checkClear();
+    const key = Object.keys(C.objs).find(x => C.objs[x].type === 'Q');
+    if (!key) return 'no quest site';
+    leaveArea(false);
+    if (S.w.quests[0].objs[0].done) return 'completed without visiting the site';
+    explore('Checkpoint Gate'); C.units.forEach(u => { u.alive = false; }); checkClear();
+    const key2 = Object.keys(C.objs).find(x => C.objs[x].type === 'Q');
+    [C.px, C.py] = key2.split(',').map(Number); C.ap = 9; interact();
+    if (!S.w.quests[0].objs[0].done) return 'interacting with the site did not complete it';
+    leaveArea(false);
+    return Object.values(S.w.objs).some(O => Object.values(O).some(o => o.type === 'Q')) ? 'quest site left behind' : '';
+});
+if (site) fail('quest site: ' + site);
+await ev(() => render());
 await ev(() => { tab = 'quests'; render(); });
 await page.click('text=Turn in to Old Man Yefim');
 if (await ev(() => S.w.arcs.yefim) !== 1) fail('Yefim stage 1 did not complete');

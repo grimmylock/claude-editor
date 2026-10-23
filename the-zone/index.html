@@ -61,6 +61,7 @@
     .cell { width: 1.35em; min-width: 1.35em; text-align: center; cursor: pointer; color: #3a6; }
     .cell:hover { outline: 1px solid #555; }
     .c-wall { color: #555; } .c-cover { color: #bb9; } .c-hard { color: #dd6; } .c-high { color: #8af; } .c-rubble { color: #765; } .c-trench { color: #a86; }
+    .c-quest { color: #ffd700; font-weight: bold; }
     .c-door { color: #c8f; } .c-term { color: #0ff; } .c-anom { color: #f0f; }
     .c-player { color: #fff; font-weight: bold; } .c-human { color: #f55; font-weight: bold; } .c-mutant { color: #fa4; font-weight: bold; } .c-dim { color: #666; }
     .c-target { background: #500; } .c-smoke { background: #333; } .c-reach { background: #0b1d0b; }
@@ -119,7 +120,7 @@
     body.work .grid { position: relative; padding-top: 28px; }
     body.work .grid::before { content: 'plaintext'; position: absolute; top: 6px; left: 10px; font-family: system-ui, sans-serif; font-size: 0.7em; color: #6b7280; }
     body.work .cell { color: #9ca3af; font-weight: normal; } body.work .c-wall, body.work .c-cover, body.work .c-hard, body.work .c-rubble, body.work .c-trench, body.work .c-high, body.work .c-door, body.work .c-term, body.work .c-anom { color: #57606a; }
-    body.work .c-player, body.work .c-human, body.work .c-mutant { color: #1f2328; font-weight: 600; }
+    body.work .c-player, body.work .c-human, body.work .c-mutant, body.work .c-quest { color: #1f2328; font-weight: 600; }
     body.work .c-floor { color: #e5e7eb; }
     body.work .dpad { display: none; }
     body.work .controls { justify-content: flex-start; }
@@ -243,13 +244,13 @@ const PT = {
     'STARVING +1 AP': 'FAMINTO +1 PA', 'Will hold AP for': 'Vai reservar PA para', 'Dual-wielding': 'Empunhando duas armas', 'Detector beeping: anomaly within': 'Detector apitando: anomalia a até', 'tile(s)': 'quadrado(s)',
     "Click a point within your rifle's range for Suppressive Fire.": 'Clique em um ponto dentro do alcance do seu fuzil para o Fogo de Supressão.', 'Click a tile to throw the': 'Clique em um quadrado para lançar a',
     '(within 8, in sight).': '(até 8, à vista).', 'Cancel': 'Cancelar',
-    '@ you · digits: hostiles (click to target) · # wall · C light / = hard cover · t trench · ^ high ground · ~ difficult · D door · T terminal · S stash · H hatch/vault · P PDA · L electronic lock · R blast door · ! anomaly · shaded: reachable':
-        '@ você · números: hostis (clique para mirar) · # parede · C cobertura leve / = pesada · t trincheira · ^ terreno elevado · ~ difícil · D porta · T terminal · S esconderijo · H escotilha/cofre · P PDA · L fechadura eletrônica · R porta blindada · ! anomalia · sombreado: alcançável',
+    '@ you · digits: hostiles (click to target) · # wall · C light / = hard cover · t trench · ^ high ground · ~ difficult · D door · T terminal · S stash · H hatch/vault · P PDA · L electronic lock · R blast door · ! anomaly · ? quest objective · shaded: reachable':
+        '@ você · números: hostis (clique para mirar) · # parede · C cobertura leve / = pesada · t trincheira · ^ terreno elevado · ~ difícil · D porta · T terminal · S esconderijo · H escotilha/cofre · P PDA · L fechadura eletrônica · R porta blindada · ! anomalia · ? objetivo de missão · sombreado: alcançável',
     'Something shimmers — cloaked': 'Algo tremeluz — camuflado', 'to target at range': 'para mirar à distância', 'SURRENDERED': 'RENDIDO', 'dist': 'dist.', 'STAGGERED': 'ATORDOADO', 'CROUCHING TO LEAP': 'AGACHADO PARA SALTAR',
     '↑ W': '↑ W', 'Clear Jam': 'Destravar', 'Strike': 'Golpear', 'Shoot': 'Atirar', 'Dual-shot': 'Disparo duplo', 'Burst': 'Rajada', 'Aim (1 AP)': 'Mirar (1 PA)', 'Reload': 'Recarregar', 'Swap:': 'Trocar:',
     'Stand up (1 AP)': 'Levantar (1 PA)', 'Take Cover (2 AP)': 'Proteger-se (2 PA)', 'Evasive (2 AP)': 'Evasiva (2 PA)', 'Intimidate (2 AP)': 'Intimidar (2 PA)', 'Dodge leap (1 AP)': 'Esquivar do salto (1 PA)',
     'Run and Gun (1 AP, +2 MP)': 'Correr e Atirar (1 PA, +2 PM)', 'Overwatch: ON': 'Vigilância: LIGADA', 'Hold 2 AP: Overwatch': 'Reservar 2 PA: Vigilância', 'Parry: ON': 'Aparo: LIGADO', 'Hold 1 AP: Parry': 'Reservar 1 PA: Aparo',
-    'Search anomaly (2 AP)': 'Vasculhar anomalia (2 PA)', 'Interact D/T/S/H (2 AP)': 'Interagir D/T/S/H (2 PA)', 'Flee the area (map edge)': 'Fugir da área (borda do mapa)', 'Leave the area': 'Sair da área', 'End Turn [E]': 'Encerrar Turno [E]',
+    'Search anomaly (2 AP)': 'Vasculhar anomalia (2 PA)', 'Interact D/T/S/H/? (2 AP)': 'Interagir D/T/S/H/? (2 PA)', 'Flee the area (map edge)': 'Fugir da área (borda do mapa)', 'Leave the area': 'Sair da área', 'End Turn [E]': 'Encerrar Turno [E]',
     'has surrendered.': 'se rendeu.', 'Interrogate': 'Interrogar', 'Take their gear': 'Pegar o equipamento', 'Let them go': 'Deixar ir', 'Execute': 'Executar', 'Loot': 'Saque', 'Take all': 'Pegar tudo', 'Take': 'Pegar',
     // ---- ranks, conditions, morale, roles, categories ----
     'Rookie': 'Novato', 'Experienced': 'Experiente', 'Professional': 'Profissional', 'Veteran': 'Veterano', 'Expert': 'Especialista', 'Master': 'Mestre', 'Legend': 'Lenda',
@@ -610,6 +611,7 @@ const PT = {
     'You are bleeding': 'Você está sangrando', 'Use a Bandage.': 'Use uma Bandagem.',
     '[Work]': '[Trabalho]', 'New chat': 'Nova conversa', 'Assistant': 'Assistente', 'Message the assistant…': 'Envie uma mensagem ao assistente…', 'How can I help you today?': 'Como posso ajudar você hoje?',
     'Hide inventory': 'Ocultar inventário',
+    'Objective here:': 'Objetivo aqui:', 'Reach the ? on the map and Interact.': 'Chegue ao ? no mapa e use Interagir.', 'find the ? on the map': 'encontre o ? no mapa',
 };
 // Word-order rules that a phrase table can't express. Run before the phrase pass.
 const PT_RX = [
@@ -2098,7 +2100,7 @@ function objDone(o) {
 function objText(o) {
     if (o.t === 'kill') return `${o.text} (${Math.min(o.have, o.need)}/${o.need})`;
     if (o.t === 'skill') return `${o.text} — ${o.stats.join('/')} DC ${o.dc}, in ${o.zone}`;
-    return o.text + (o.lm ? ` [${o.zone} — ${o.lm}]` : o.t === 'visit' || o.t === 'clear' ? ` [${o.zone}]` : '');
+    return o.text + (o.lm ? ` [${o.zone} — ${o.lm}]` : o.t === 'visit' || o.t === 'clear' ? ` [${o.zone}]` : '') + (o.t === 'visit' && !o.done ? ' — find the ? on the map' : '');
 }
 function skillObj(q, o) {
     const st = o.stats.reduce((a, b) => (statMod(S.p.stats[b]) > statMod(S.p.stats[a]) ? b : a));
@@ -2266,6 +2268,15 @@ function ensureObjs(key, zone) {
     }
     return (S.w.objs[key] = O);
 }
+// Quest sites ('?') mark where a "visit" objective is done on a landmark map; placed on entry, removed on leaving.
+function questSite(site) {
+    site.done = true;
+    const q = S.w.quests.find(x => x.id === site.q), o = q && q.objs[site.o];
+    if (!o || o.done) return;
+    o.done = true; log(`Objective: ${o.text} — done.`, 'gold');
+    if (o.grant) { addItem(o.grant); log(`Recovered: ${o.grant}.`, 'gold'); }
+}
+const dropQuestSites = objs => { for (const key in objs) if (objs[key].type === 'Q') delete objs[key]; };
 function objCheck(o, x, y) {
     const [name, stats, dc] = OBJ[o.type], p = S.p;
     const st = stats.reduce((a, b) => (statMod(p.stats[b]) > statMod(p.stats[a]) ? b : a)), r = d(20), m = statMod(p.stats[st]), tot = r + m;
@@ -2306,6 +2317,15 @@ function enterTactical(zone, lm, units, enc = {}) {
     cands.sort((a, b) => a.s - b.s);
     units.forEach((u, i) => { u.id = i + 1; const c = cands[i] || cands[cands.length - 1] || { x: C.W - 1, y: 0 }; u.x = c.x; u.y = c.y; u.wounds = u.wounds || {}; });
     C.target = units.length ? units[0].id : null;
+    dropQuestSites(objs);
+    const free = cands.filter(c => !units.some(u => u.x === c.x && u.y === c.y) && !objs[k(c.x, c.y)]), far = free.filter(c => man(c.x, c.y, C.px, C.py) >= 6);
+    const spots = far.length ? far : free;
+    S.w.quests.forEach(q => q.objs.forEach((o, i) => {
+        if (o.t !== 'visit' || o.done || o.zone !== zone || (o.lm && o.lm !== L[0]) || !spots.length) return;
+        const c = spots.splice(Math.floor(Math.random() * spots.length), 1)[0];
+        objs[k(c.x, c.y)] = { type: 'Q', q: q.id, o: i };
+        log(`Objective here: ${o.text}. Reach the ? on the map and Interact.`, 'gold');
+    }));
     mode = 'combat';
     if (units.length) {
         const shown = units.filter(visible).map(u => u.name);
@@ -2646,7 +2666,8 @@ function interact() {
     if (!actOK(2)) return;
     C.ap -= 2;
     const [x, y] = t, tile = tileAt(x, y), p = S.p, o = liveObj(x, y);
-    if (o) objCheck(o, x, y);
+    if (o && o.type === 'Q') questSite(o);
+    else if (o) objCheck(o, x, y);
     else if (tile === 'D') {
         const r = d(20), m = Math.max(statMod(p.stats.S), statMod(p.stats.I)), tot = r + m;
         if (tot >= 13) { C.map[y][x] = '.'; log(`Door forced (${r}${sgn(m)} = ${tot} vs DC 13).`, 'good'); }
@@ -2733,13 +2754,11 @@ function leaveArea(flee) {
     if (flee) log('You break contact and slip out of the area.', 'warn');
     else {
         if (C.units.some(u => u.surrendered && !u.resolved)) log('You leave the prisoners to the Zone.');
-        w.quests.forEach(q => q.objs.forEach(o => {
-            if (o.t === 'visit' && !o.done && o.zone === C.zone && (!o.lm || o.lm === C.lm)) { o.done = true; log(`Objective: ${o.text} — done.`, 'gold'); if (o.grant) { addItem(o.grant); log(`Recovered: ${o.grant}.`, 'gold'); } }
-        }));
         if (C.hadEnemies && C.cleared && ZONES[C.zone].isSub) w.prog.subCleared = true;
     }
     const p = S.p; p.temp = 0; p.tempTurns = 0; p.st.prone = false; p.st.drain = 0;
     p.weapons.forEach(x => { x.jammed = false; });
+    dropQuestSites(C.objs);
     const then = C.enc && C.enc.then;
     C = null; mode = 'world'; tab = w.zone === 'The Perimeter' ? 'camp' : 'zone';
     topOffAll(); checkRank();
@@ -3589,7 +3608,7 @@ function viewCombat() {
     if (flags.length) h += `<div class="small center">${flags.join(' · ')}</div>`;
     if (C.pending) h += `<div class="warn small center">${C.pending === 'Suppressive Fire' ? 'Click a point within your rifle\'s range for Suppressive Fire.' : `Click a tile to throw the ${C.pending} (within 8, in sight).`} ${B('Cancel', () => { C.pending = null; }, { cls: 'inv-btn' })}</div>`;
     h += gridHTML();
-    h += '<div class="small muted center legend">@ you · digits: hostiles (click to target) · # wall · C light / = hard cover · t trench · ^ high ground · ~ difficult · D door · T terminal · S stash · H hatch/vault · P PDA · L electronic lock · R blast door · ! anomaly · shaded: reachable</div>';
+    h += '<div class="small muted center legend">@ you · digits: hostiles (click to target) · # wall · C light / = hard cover · t trench · ^ high ground · ~ difficult · D door · T terminal · S stash · H hatch/vault · P PDA · L electronic lock · R blast door · ! anomaly · ? quest objective · shaded: reachable</div>';
     C.units.forEach((u, i) => {
         if (!u.alive || u.gone) return;
         const seen = visible(u), sel = u.id === C.target;
@@ -3634,7 +3653,7 @@ function viewCombat() {
         if (has('Desperate Parry')) c2 += B(C.hold === 'parry' ? 'Parry: ON' : 'Hold 1 AP: Parry', () => { C.hold = C.hold === 'parry' ? null : 'parry'; }, { cls: 'c-btn blue' });
     }
     c2 += B('Search anomaly (2 AP)', searchAnomaly, { cls: 'c-btn pur', dis: dis || !adjacentTile(searchable) });
-    c2 += B('Interact D/T/S/H (2 AP)', interact, { cls: 'c-btn pur', dis: dis || !adjacentTile(interactable) });
+    c2 += B('Interact D/T/S/H/? (2 AP)', interact, { cls: 'c-btn pur', dis: dis || !adjacentTile(interactable) });
     h += `<div class="controls">${c2}</div>`;
     let c3 = '';
     if (hostile) c3 += B('Flee the area (map edge)', () => leaveArea(true), { cls: 'c-btn', dis: !onEdge() || dis });
@@ -3669,7 +3688,7 @@ function gridHTML() {
             let ch = C.map[y][x], cls = TILE_CLS[ch] || (ch === '.' ? 'c-floor' : '');
             const a = C.anoms[k(x, y)];
             if (a && a.revealed) { ch = '!'; cls = 'c-anom' + (a.searched ? ' c-dim' : ''); }
-            const ob = C.objs[k(x, y)]; if (ob && !ob.done && ob.type !== 'R') { ch = ob.type; cls = 'c-term'; }
+            const ob = C.objs[k(x, y)]; if (ob && !ob.done && ob.type !== 'R') { ch = ob.type === 'Q' ? '?' : ob.type; cls = ob.type === 'Q' ? 'c-quest' : 'c-term'; }
             if (smokeAt(x, y)) cls += ' c-smoke';
             const ui = C.units.findIndex(u => onMap(u) && u.x === x && u.y === y);
             if (x === C.px && y === C.py) { ch = '@'; cls = 'c-player'; }
