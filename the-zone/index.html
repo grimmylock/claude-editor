@@ -115,10 +115,13 @@
     body.work .panel { border-color: #e5e7eb; border-radius: 8px; }
     body.work .text-in { background: #fff; color: #1f2328; border-color: #d1d5db; }
     body.work .grid { background: #f6f8fa; border-color: #e5e7eb; border-radius: 6px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.95em; }
-    body.work .cell { color: #8c959f; } body.work .c-wall { color: #6e7781; } body.work .c-player { color: #111; }
-    body.work .c-human { color: #cf222e; } body.work .c-mutant { color: #9a6700; } body.work .c-door, body.work .c-anom { color: #8250df; } body.work .c-term, body.work .c-high { color: #0550ae; }
-    body.work .c-cover, body.work .c-hard, body.work .c-rubble, body.work .c-trench { color: #57606a; }
-    body.work .c-target { background: #ffebe9; } body.work .c-smoke { background: #eaeef2; } body.work .c-reach { background: #eef6ee; }
+    /* combat in work mode: no title or legend, and the map reads as a plain-text code block in one ink colour */
+    body.work .combat-title, body.work .legend { display: none; }
+    body.work .grid { position: relative; padding-top: 28px; }
+    body.work .grid::before { content: 'plaintext'; position: absolute; top: 6px; left: 10px; font-family: system-ui, sans-serif; font-size: 0.7em; color: #6b7280; }
+    body.work .cell { color: #9ca3af; font-weight: normal; } body.work .c-wall, body.work .c-cover, body.work .c-hard, body.work .c-rubble, body.work .c-trench, body.work .c-high, body.work .c-door, body.work .c-term, body.work .c-anom { color: #57606a; }
+    body.work .c-player, body.work .c-human, body.work .c-mutant { color: #1f2328; font-weight: 600; }
+    body.work .c-target { background: #e5e7eb; } body.work .c-smoke { background: #f0f1f3; } body.work .c-reach { background: #f3f4f6; }
 
     @media (max-width: 900px) {
         body { height: auto; overflow: auto; padding: 8px; }
@@ -3558,7 +3561,7 @@ function viewSheet() {
 }
 function viewCombat() {
     const p = S.p, w = eqW(), wd = eqWD(), hostile = hostilesLeft(), mine = myTurn();
-    let h = `<h2 style="text-transform:uppercase" class="${hostile ? 'alert' : ''}">${hostile ? 'TACTICAL COMBAT' : 'EXPLORING'} — ${C.lm}, ${C.zone}</h2>`;
+    let h = `<h2 style="text-transform:uppercase" class="combat-title ${hostile ? 'alert' : ''}">${hostile ? 'TACTICAL COMBAT' : 'EXPLORING'} — ${C.lm}, ${C.zone}</h2>`;
     h += `<div class="apbar">Turn ${C.turn} · AP ${C.ap}/${C.apMax} · MP ${C.mp}/${C.mpMax}${C.coverMp ? ` (+${C.coverMp} cover MP)` : ''} · AC ${playerAC()}${C.takeCover ? ' (+2 taking cover)' : ''}${C.evasive ? ' (+2 vs melee)' : ''}</div>`;
     if (w) h += `<div class="small center">${w.name} (${w.cond})${wd.cal ? ` — ${w.jammed ? '<span class="alert">JAMMED</span>' : `${w.mag}/${capOf(w)} ${AMMO[w.ammo].short}`}, range ${effRange(w)}` : ' — melee'}</div>`;
     const flags = [];
@@ -3573,7 +3576,7 @@ function viewCombat() {
     if (flags.length) h += `<div class="small center">${flags.join(' · ')}</div>`;
     if (C.pending) h += `<div class="warn small center">${C.pending === 'Suppressive Fire' ? 'Click a point within your rifle\'s range for Suppressive Fire.' : `Click a tile to throw the ${C.pending} (within 8, in sight).`} ${B('Cancel', () => { C.pending = null; }, { cls: 'inv-btn' })}</div>`;
     h += gridHTML();
-    h += '<div class="small muted center">@ you · digits: hostiles (click to target) · # wall · C light / = hard cover · t trench · ^ high ground · ~ difficult · D door · T terminal · S stash · H hatch/vault · P PDA · L electronic lock · R blast door · ! anomaly · shaded: reachable</div>';
+    h += '<div class="small muted center legend">@ you · digits: hostiles (click to target) · # wall · C light / = hard cover · t trench · ^ high ground · ~ difficult · D door · T terminal · S stash · H hatch/vault · P PDA · L electronic lock · R blast door · ! anomaly · shaded: reachable</div>';
     C.units.forEach((u, i) => {
         if (!u.alive || u.gone) return;
         const seen = visible(u), sel = u.id === C.target;
