@@ -229,7 +229,8 @@ const objErr = await ev(() => {
     C.objs[k(C.px, C.py - 1)] = { type: 'L' };
     for (let i = 0; i < 40 && !C.objs[k(C.px, C.py - 1)].done; i++) { C.ap = 2; interact(); }
     if (!C.loot.length) return 'electronic lock gave no loot';
-    if (!S.w.objs.cityfield[k(4, 0)] || C.map[0][4] !== 'R') return 'blast door missing from the city grid';
+    const ry = GRIDS.cityfield.rows.findIndex(r => r.includes('R')), rx = ry < 0 ? -1 : GRIDS.cityfield.rows[ry].indexOf('R');
+    if (ry < 0 || !S.w.objs.cityfield[k(rx, ry)] || C.map[ry][rx] !== 'R') return 'blast door missing from the city grid';
     leaveArea(false); return '';
 });
 if (objErr) fail(objErr);
