@@ -3406,9 +3406,17 @@ function perkButtons(onPick, isSel = () => false) {
 function viewPerk() {
     return '<div class="panel gold-b"><h2 class="gold">PERK AVAILABLE</h2>' + perkButtons(selectPerk) + '</div>';
 }
+// Open skill-check objectives for the current zone, shown on the Camp/Zone screen as well as the Quests tab.
+function skillHere() {
+    let h = '';
+    S.w.quests.forEach(q => q.objs.forEach(o => {
+        if (o.t === 'skill' && !o.done && o.zone === S.w.zone) h += B(`Attempt: ${o.text} (${o.stats.join('/')} DC ${o.dc}) — ${q.title}`, () => skillObj(q, o), { style: 'border-color:#ffd700' });
+    }));
+    return h;
+}
 function viewCamp() {
     const c = S.c, area = c.area > 70 ? '<span class="good">Abundant</span>' : c.area > 30 ? '<span class="warn">Depleting</span>' : '<span class="alert">Picked clean</span>';
-    let h = `<h2>The Bonfire Camp</h2><p class="center muted">The fire is <b>${FIRE[c.fire]}</b>. Area scrap: ${area}.</p>`;
+    let h = `<h2>The Bonfire Camp</h2><p class="center muted">The fire is <b>${FIRE[c.fire]}</b>. Area scrap: ${area}.</p>` + skillHere();
     h += B('Scavenge the fence-line', scavenge);
     if (c.fire === 0) h += B('Light the fire (5 Wood)', lightFire, { dis: count('Wood') < 5 });
     else h += B('Stoke the fire (1 Wood)', stoke, { dis: count('Wood') < 1 || c.fire >= 4 });
@@ -3431,6 +3439,7 @@ function viewZone() {
         return h + B('Let them pass', () => resolveMeet('pass')) + B(`Open fire (−1 ${e.faction} rep, more per kill)`, () => resolveMeet('attack'), { style: 'border-color:#a33' });
     }
     let h = `<h2>${z}</h2><p class="center muted">Tier ${zoneTier(z)} · Hazard ${zoneHazard(z)} · ${Z.safe ? 'SAFE ZONE' : Z.indoor ? 'Indoor (shelter)' : isShelter(z) ? 'Outpost (shelter)' : 'Outdoor'}${Z.fac.length ? ' · Factions: ' + zoneFoes(z).join(', ') : ''}</p><p class="center">${Z.desc}</p>`;
+    h += skillHere();
     if (allFrags() && !w.story.sponsor && (z === 'Abandoned City' || z === 'The Siege Ward')) {
         h += '<div class="panel gold-b"><b>ACT 4 — ALLEGIANCE.</b> Choose a sponsor (any Friendly faction), or go alone. Each would do something different with the Source.</div>';
         sponsorOptions().forEach(f => { h += B(f === 'Alone' ? 'Go alone — no help, no debts (ending: Take it)' : `${f} — ending: ${ENDINGS[endingFor(f)].title}`, () => chooseSponsor(f), { style: 'border-color:#ffd700' }); });

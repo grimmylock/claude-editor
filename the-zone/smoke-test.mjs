@@ -90,7 +90,8 @@ qErr.forEach(fail);
 // Yefim's arc stage 1 end-to-end: accept, explore the landmark, leave, turn in.
 await ev(() => { S.w.zone = 'The Perimeter'; S.w.offers = {}; tab = 'quests'; render(); });
 await page.click('text=★ Fence Mending');
-await ev(() => { S.w.quests[0].comp = 1; explore('Checkpoint Gate'); render(); });
+// a peaceful patrol can intercept instead of the map opening; wave it off and try again
+await ev(() => { S.w.quests[0].comp = 1; for (let i = 0; i < 20 && mode !== 'combat'; i++) { meet = null; explore('Checkpoint Gate'); } render(); });
 // Leaving without reaching the '?' must not complete the objective; interacting with it must.
 const site = await ev(() => {
     if (mode !== 'combat') return 'not on map';
@@ -99,7 +100,8 @@ const site = await ev(() => {
     if (!key) return 'no quest site';
     leaveArea(false);
     if (S.w.quests[0].objs[0].done) return 'completed without visiting the site';
-    explore('Checkpoint Gate'); C.units.forEach(u => { u.alive = false; }); checkClear();
+    for (let i = 0; i < 20 && mode !== 'combat'; i++) { meet = null; explore('Checkpoint Gate'); }
+    C.units.forEach(u => { u.alive = false; }); checkClear();
     const key2 = Object.keys(C.objs).find(x => C.objs[x].type === 'Q');
     [C.px, C.py] = key2.split(',').map(Number); C.ap = 9; interact();
     if (!S.w.quests[0].objs[0].done) return 'interacting with the site did not complete it';
@@ -168,7 +170,7 @@ for (let round = 0; round < 3; round++) {
 console.log(`fights: ${fights}, cleared: ${cleared}`);
 const seen = await ev(() => seen);
 console.log('mechanics fired:', JSON.stringify(seen));
-for (const k of ['ADRENALINE', 'SUPPRESSIVE FIRE', 'Hit and Run', 'Run and Gun', 'Entrenched', 'Shot (Walker P9m)']) if (!seen[k]) fail(`mechanic never fired: ${k}`);
+for (const k of ['ADRENALINE', 'SUPPRESSIVE FIRE', 'Run and Gun', 'Entrenched', 'Shot (Walker P9m)']) if (!seen[k]) fail(`mechanic never fired: ${k}`);
 if (cleared === 0) fail('auto-player never cleared a fight');
 
 // Shotgun perks, set up deterministically: two adjacent targets in close range.
@@ -188,10 +190,13 @@ const shot = await ev(() => {
     // Overwatch: a sniper holding AP fires at a target that comes into view.
     const sv = S.p.weapons.find(x => x.name === 'SVDm-2'); S.p.eq = sv.id; sv.mag = 5; sv.jammed = false; sv.cond = 'Working';
     C.held = 'ow'; C.reacted = false; C.owSeen = new Set(); overwatch(units[0]);
+    // Hit and Run: an SMG attack refunds 2 MP.
+    S.p.perks = ['Hit and Run']; const smg = S.p.weapons.find(x => x.name === 'PP-19 Bizon') || addWeapon('PP-19 Bizon');
+    S.p.eq = smg.id; smg.mag = 20; smg.jammed = false; smg.cond = 'Working'; C.ap = 9; C.target = units[0].id; playerAttack(false);
     leaveArea(true);
     return seen;
 });
-for (const k of ['Buckshot spread', 'staggers', 'OVERWATCH']) if (!shot[k]) fail(`mechanic never fired: ${k}`);
+for (const k of ['Buckshot spread', 'staggers', 'OVERWATCH', 'Hit and Run']) if (!shot[k]) fail(`mechanic never fired: ${k}`);
 
 // Long shots, fleeing and spawn spread.
 const misc = await ev(() => {
@@ -224,6 +229,19 @@ const misc = await ev(() => {
     return out;
 });
 misc.forEach(fail);
+
+// Skill-check objectives can be attempted from the Camp/Zone screen, not only the Quests tab.
+const skillBtn = await ev(() => {
+    mode = 'world'; S.w.zone = 'The Perimeter'; tab = 'camp';
+    const q = makeQuest(QB.find(x => x.id === 'T1-01'), 'yefim', 'Wanderers'); acceptQuest(q); render();
+    const btn = [...document.querySelectorAll('#view button')].find(b => b.textContent.startsWith('Attempt:'));
+    if (!btn) return 'no Attempt button on the camp screen';
+    btn.click();
+    const ok = /DC 12/.test(document.querySelector('.log-entry').textContent);
+    S.w.quests = S.w.quests.filter(x => x !== q); render();
+    return ok ? '' : 'Attempt button did nothing';
+});
+if (skillBtn) fail(skillBtn);
 
 // Interactive objects (file 05): PDA, electronic lock, rusted blast door.
 const objErr = await ev(() => {
