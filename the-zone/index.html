@@ -121,6 +121,10 @@
     body.work .grid::before { content: 'plaintext'; position: absolute; top: 6px; left: 10px; font-family: system-ui, sans-serif; font-size: 0.7em; color: #6b7280; }
     body.work .cell { color: #9ca3af; font-weight: normal; } body.work .c-wall, body.work .c-cover, body.work .c-hard, body.work .c-rubble, body.work .c-trench, body.work .c-high, body.work .c-door, body.work .c-term, body.work .c-anom { color: #57606a; }
     body.work .c-player, body.work .c-human, body.work .c-mutant { color: #1f2328; font-weight: 600; }
+    body.work .c-floor { color: #e5e7eb; }
+    body.work .dpad { display: none; }
+    body.work .controls { justify-content: flex-start; }
+    body.work #view .center, body.work .apbar { text-align: left; }
     body.work .c-target { background: #e5e7eb; } body.work .c-smoke { background: #f0f1f3; } body.work .c-reach { background: #f3f4f6; }
 
     @media (max-width: 900px) {
@@ -3590,7 +3594,7 @@ function viewCombat() {
     if (!hostile) h += combatLootPanel();
     if (!mine) return h;
     const dis = p.st.prone;
-    h += '<div class="controls">' + [['↑ W', 0, -1], ['↓ S', 0, 1], ['← A', -1, 0], ['→ D', 1, 0]].map(([l, dx, dy]) => B(l, () => stepPlayer(dx, dy), { cls: 'c-btn', dis: dis || C.mp <= 0 })).join('') + '</div>';
+    h += '<div class="controls dpad">' + [['↑ W', 0, -1], ['↓ S', 0, 1], ['← A', -1, 0], ['→ D', 1, 0]].map(([l, dx, dy]) => B(l, () => stepPlayer(dx, dy), { cls: 'c-btn', dis: dis || C.mp <= 0 })).join('') + '</div>';
     let c1 = '';
     if (w && hostile) {
         if (w.jammed) c1 += B(`Clear Jam (${jamCost()} AP)`, clearJam, { cls: 'c-btn red' });
@@ -3653,7 +3657,7 @@ function gridHTML() {
     for (let y = 0; y < C.H; y++) {
         h += '<div class="grow">';
         for (let x = 0; x < C.W; x++) {
-            let ch = C.map[y][x], cls = TILE_CLS[ch] || '';
+            let ch = C.map[y][x], cls = TILE_CLS[ch] || (ch === '.' ? 'c-floor' : '');
             const a = C.anoms[k(x, y)];
             if (a && a.revealed) { ch = '!'; cls = 'c-anom' + (a.searched ? ' c-dim' : ''); }
             const ob = C.objs[k(x, y)]; if (ob && !ob.done && ob.type !== 'R') { ch = ob.type; cls = 'c-term'; }

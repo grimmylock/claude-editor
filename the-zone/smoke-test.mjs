@@ -152,7 +152,7 @@ for (let round = 0; round < 3; round++) {
 console.log(`fights: ${fights}, cleared: ${cleared}`);
 const seen = await ev(() => seen);
 console.log('mechanics fired:', JSON.stringify(seen));
-for (const k of ['OVERWATCH', 'ADRENALINE', 'SUPPRESSIVE FIRE', 'Hit and Run', 'Run and Gun', 'Entrenched', 'Shot (Walker P9m)']) if (!seen[k]) fail(`mechanic never fired: ${k}`);
+for (const k of ['ADRENALINE', 'SUPPRESSIVE FIRE', 'Hit and Run', 'Run and Gun', 'Entrenched', 'Shot (Walker P9m)']) if (!seen[k]) fail(`mechanic never fired: ${k}`);
 if (cleared === 0) fail('auto-player never cleared a fight');
 
 // Shotgun perks, set up deterministically: two adjacent targets in close range.
@@ -169,10 +169,13 @@ const shot = await ev(() => {
     [[units[0].x, units[0].y], [units[1].x, units[1].y]] = pair;
     C.target = units[0].id;
     for (let i = 0; i < 200 && !(seen['Buckshot spread'] && seen.staggers); i++) { C.ap = 9; w.mag = 6; w.jammed = false; w.cond = 'Working'; S.p.hp = 100; playerAttack(false); }
+    // Overwatch: a sniper holding AP fires at a target that comes into view.
+    const sv = S.p.weapons.find(x => x.name === 'SVDm-2'); S.p.eq = sv.id; sv.mag = 5; sv.jammed = false; sv.cond = 'Working';
+    C.held = 'ow'; C.reacted = false; C.owSeen = new Set(); overwatch(units[0]);
     leaveArea(true);
     return seen;
 });
-for (const k of ['Buckshot spread', 'staggers']) if (!shot[k]) fail(`mechanic never fired: ${k}`);
+for (const k of ['Buckshot spread', 'staggers', 'OVERWATCH']) if (!shot[k]) fail(`mechanic never fired: ${k}`);
 
 // Interactive objects (file 05): PDA, electronic lock, rusted blast door.
 const objErr = await ev(() => {
