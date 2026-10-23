@@ -2554,7 +2554,7 @@ function fireShot(w, u, burst, mod) {
     let hb = mod + statMod(S.p.stats.A) + RANKS[S.p.rank].mod + (wd.hit || 0) - (wd.recoil ? 1 : 0) + (w.upg.includes('Calibrated') ? 1 : 0);
     if (wd.hitSingle && !burst) hb += 1;
     if (wd.scope && dist >= 10) hb += 1;
-    if (!melee) { const r = effRange(w); if (dist > 2 * r) hb -= 2; else if (dist > r) hb -= 1; } // long shots: −1 to 2× range, −2 beyond
+    if (!melee) hb -= longShot(dist, effRange(w));
     if (wd.cat === 'shotgun' && dist <= 4) hb += 2;
     if (wd.cat === 'sniper' && has("Marksman's Focus")) hb += 2;
     if (burst) hb += (wd.cat === 'assault' && has('Recoil Control')) || (wd.cat === 'smg' && dist <= 4 && has('Bullet Hose')) ? 0 : b.pen;
@@ -2947,8 +2947,11 @@ function npcMoveTo(u, mp, isGoal, score = () => 0) {
     for (const [x, y] of pathTo(res, best[0], best[1])) { const c = tileCost(x, y); if (used + c > mp) break; used += c; npcStep(u, x, y); }
     return used;
 }
+// Long shots past weapon range: −1 to hit up to 2× range, −2 beyond (player and NPCs alike).
+const longShot = (dist, range) => (dist > 2 * range ? 2 : dist > range ? 1 : 0);
 const npcRange = u => { const wd = WEAPONS[u.weapon.name]; return wd.cat === 'melee' ? 1 : wd.range; };
-const canShootFrom = (u, x, y) => man(x, y, C.px, C.py) <= npcRange(u) && hasLoS(x, y, C.px, C.py);
+const canShootFrom = (u, x, y) => man(x, y, C.px, C.py) <= npcRange(u) && hasLoS(x, y, C.px, C.py); // where NPCs move to
+const canFireFrom = (u, x, y) => (npcRange(u) === 1 ? man(x, y, C.px, C.py) <= 1 : hasLoS(x, y, C.px, C.py)); // long shots allowed
 const nearCover = (x, y) => isCoverT(tileAt(x, y)) || tileAt(x, y) === 't' || DIR4.some(([dx, dy]) => isCoverT(tileAt(x + dx, y + dy)));
 function enemyRound() {
     C.enemyPhase = true; C.attacksOnPlayer = 0;
@@ -3009,7 +3012,7 @@ function actHuman(u) {
         if (mode !== 'combat') return;
     }
     if (!melee && u.weapon.mag < 1 && ap >= 1) { ap--; u.weapon.mag = wd.cap; log(`${uname(u)} reloads.`); }
-    if (ap >= 2 && !u.weapon.jammed && u.weapon.cond !== 'Broken' && canShootFrom(u, u.x, u.y)) {
+    if (ap >= 2 && !u.weapon.jammed && u.weapon.cond !== 'Broken' && canFireFrom(u, u.x, u.y)) {
         const burst = !!b && u.role !== 'Leader' && ap >= b.ap && u.weapon.mag >= b.rounds;
         if (u.role === 'Anchor' && ap >= (burst ? b.ap : 2) + 1) { u.aim = 2; ap--; }
         npcAttack(u, burst);
@@ -3021,7 +3024,7 @@ function npcAttack(u, burst) {
     if (!melee) u.weapon.mag -= burst ? b.rounds : 1;
     let hb = RANKS[u.rank].mod + (wd.hit || 0) - (wd.recoil ? 1 : 0) + (wd.hitSingle && !burst ? 1 : 0) + (wd.scope && dist >= 10 ? 1 : 0)
         + (wd.cat === 'shotgun' && dist <= 4 ? 2 : 0) + (burst ? b.pen : 0) + (u.aim || 0) + (u.cmd || 0)
-        - (u.morale === 'Shaken' ? 2 : 0) - (u.suppressed ? 2 : 0) - (u.wounds.arm ? 2 : 0);
+        - (u.morale === 'Shaken' ? 2 : 0) - (u.suppressed ? 2 : 0) - (u.wounds.arm ? 2 : 0) - (melee ? 0 : longShot(dist, wd.range));
     u.aim = 0; u.cmd = 0;
     const cov = coverFor(u.x, u.y, C.px, C.py, melee);
     if (cov.flanked) hb += 2;

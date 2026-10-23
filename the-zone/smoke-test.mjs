@@ -204,6 +204,12 @@ const misc = await ev(() => {
     let spot = null;
     for (let y = 0; y < C.H && !spot; y++) for (let x = 0; x < C.W; x++) if (passable(x, y) && pDist({ x, y }) > effRange(w) && hasLoS(C.px, C.py, x, y)) { spot = [x, y]; break; }
     if (spot) { [u.x, u.y] = spot; C.target = u.id; C.ap = 9; playerAttack(false); if (w.mag !== 7) out.push('long shot was refused'); }
+    // enemies may take long shots too: a raider beyond its weapon's range but in sight still fires
+    const h = mkHuman('Raiders', 1, 0); h.id = 99; C.units.push(h);
+    let hs = null;
+    for (let y = 0; y < C.H && !hs; y++) for (let x = 0; x < C.W; x++) if (passable(x, y) && npcRange(h) > 1 && pDist({ x, y }) > npcRange(h) && hasLoS(x, y, C.px, C.py)) { hs = [x, y]; break; }
+    if (hs) { [h.x, h.y] = hs; if (!canFireFrom(h, h.x, h.y)) out.push('enemy cannot take a long shot'); C.attacksOnPlayer = 0; S.p.hp = 9999; npcAttack(h, false); if (C.attacksOnPlayer !== 1) out.push('enemy long shot did not fire'); S.p.hp = 100; }
+    C.units = C.units.filter(x => x !== h);
     // a panicked mutant stays on the map and runs for the edge
     u.fleeing = true; u.mp = 4; [u.x, u.y] = [Math.floor(C.W / 2), Math.floor(C.H / 2)];
     for (let y = 0; y < C.H && !passable(u.x, u.y); y++) for (let x = 0; x < C.W; x++) if (passable(x, y)) { [u.x, u.y] = [x, y]; break; }
