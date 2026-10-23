@@ -193,6 +193,32 @@ const shot = await ev(() => {
 });
 for (const k of ['Buckshot spread', 'staggers', 'OVERWATCH']) if (!shot[k]) fail(`mechanic never fired: ${k}`);
 
+// Long shots, fleeing and spawn spread.
+const misc = await ev(() => {
+    const out = [];
+    mode = 'world'; S.w.zone = 'The Perimeter'; S.p.perks = [];
+    // a shot past the weapon's range is allowed (with a penalty) instead of refused
+    const u = mkMutant('Flesh Stalker'); u.hp = u.maxHp = 9999;
+    enterTactical('The Perimeter', 'Bonfire Camp', [u]);
+    const w = S.p.weapons.find(x => x.name === 'PMm'); S.p.eq = w.id; w.mag = 8; w.jammed = false; w.cond = 'Working';
+    let spot = null;
+    for (let y = 0; y < C.H && !spot; y++) for (let x = 0; x < C.W; x++) if (passable(x, y) && pDist({ x, y }) > effRange(w) && hasLoS(C.px, C.py, x, y)) { spot = [x, y]; break; }
+    if (spot) { [u.x, u.y] = spot; C.target = u.id; C.ap = 9; playerAttack(false); if (w.mag !== 7) out.push('long shot was refused'); }
+    // a panicked mutant stays on the map and runs for the edge
+    u.fleeing = true; u.mp = 4; [u.x, u.y] = [Math.floor(C.W / 2), Math.floor(C.H / 2)];
+    for (let y = 0; y < C.H && !passable(u.x, u.y); y++) for (let x = 0; x < C.W; x++) if (passable(x, y)) { [u.x, u.y] = [x, y]; break; }
+    if (!active(u)) out.push('fleeing unit vanished at once');
+    for (let i = 0; i < 20 && !u.gone; i++) fleeStep(u);
+    if (!u.gone) out.push('fleeing unit never escaped');
+    leaveArea(true);
+    // spawns differ between visits
+    const seen = new Set();
+    for (let i = 0; i < 20; i++) { const e = mutantGroup(1); enterTactical('The Perimeter', 'Checkpoint Gate', e.units, e); seen.add(k(C.units[0].x, C.units[0].y)); leaveArea(true); }
+    if (seen.size < 5) out.push(`spawns too fixed: ${seen.size} distinct of 20`);
+    return out;
+});
+misc.forEach(fail);
+
 // Interactive objects (file 05): PDA, electronic lock, rusted blast door.
 const objErr = await ev(() => {
     mode = 'world'; S.w.zone = 'Abandoned City'; S.p.hp = 100; S.p.st.prone = false;

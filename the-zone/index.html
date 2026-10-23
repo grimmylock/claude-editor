@@ -612,12 +612,15 @@ const PT = {
     '[Work]': '[Trabalho]', 'New chat': 'Nova conversa', 'Assistant': 'Assistente', 'Message the assistant…': 'Envie uma mensagem ao assistente…', 'How can I help you today?': 'Como posso ajudar você hoje?',
     'Hide inventory': 'Ocultar inventário',
     'Objective here:': 'Objetivo aqui:', 'Reach the ? on the map and Interact.': 'Chegue ao ? no mapa e use Interagir.', 'find the ? on the map': 'encontre o ? no mapa',
+    'PANICS and runs for the edge of the area!': 'ENTRA EM PÂNICO e corre para a borda da área!', 'BREAKS and runs for the edge of the area!': 'SE DESESPERA e corre para a borda da área!', 'escapes into the Zone.': 'escapa para a Zona.', 'FLEEING': 'FUGINDO', 'Out of reach': 'Fora de alcance', 'tiles': 'casas', 'beyond': 'além',
 };
 // Word-order rules that a phrase table can't express. Run before the phrase pass.
 const PT_RX = [
     [/\b(HP|AP)(?= (\d{3}\b|×|\(unloaded\)|▸))/g, m => ({ HP: 'PO', AP: 'Perf' }[m])], // ammo-type shorts, not Health/Action Points
     [/\b(Raiders|Outcasts|Wanderers|Prospectors|Garrison|Sentinels|Liberators|Contractors|Obelisk|Cartel|Ecologist|IZC) (Rookie|Experienced|Professional|Veteran|Expert|Master|Legend)\b/g, (m, f, r) => `${PT[r]} (${PT[f]})`],
     [/Mutant Part \(T(\d)\)/g, 'Parte de Mutante (N$1)'],
+    [/(\d+\/\d+ )HP(?=, range)/g, '$1PO'], // loaded hollow-points on the weapon line, not health
+    [/\(−1 to (\d+), −2 beyond\)/g, '(−1 até $1, −2 além)'],
     [/\bT(\d)\b/g, 'N$1'],
 ];
 let PT_RE = null;
@@ -2294,9 +2297,9 @@ function objCheck(o, x, y) {
 function enterTactical(zone, lm, units, enc = {}) {
     const L = ZONES[zone].lms.find(l => l[0] === lm) || ZONES[zone].lms[0];
     const key = L[1], rows = GRIDS[key].rows, anoms = ensureAnoms(key, zone), objs = ensureObjs(key, zone);
-    let ex = null, xx = null;
+    let ex = null;
     const map = rows.map((r, y) => r.split('').map((ch, x) => {
-        if (ch === 'e') ex = [x, y]; if (ch === 'x') xx = [x, y];
+        if (ch === 'e') ex = [x, y];
         if (ch === 'R' && objs[k(x, y)] && objs[k(x, y)].done) return '.';
         return 'ex!'.includes(ch) ? '.' : ch;
     }));
@@ -2305,15 +2308,18 @@ function enterTactical(zone, lm, units, enc = {}) {
         px: 0, py: 0, ap: 0, apMax: 0, mp: 0, mpMax: 0, target: null, pending: null, killed: {}, hadEnemies: units.length > 0,
         sameCover: 0, lastCover: null, suppressedNext: false, enemyPhase: false, injected: false, braced: false, cleared: false, loot: [], enc,
     };
-    // player at E1; enemies as near E2 as possible, else as far from the player as the map allows
+    // player at E1; enemies grouped around a random reachable spot well away from the player
     if (ex) [C.px, C.py] = ex;
     else for (let x = 0; x < C.W && !ex; x++) for (let y = 0; y < C.H; y++) if (passable(x, y) && !C.anoms[k(x, y)]) { ex = [x, y]; [C.px, C.py] = ex; break; }
     const reach = dijkstra(C.px, C.py, (x, y) => (passable(x, y) || tileAt(x, y) === 'D') && !C.anoms[k(x, y)]);
     const cands = [];
     for (let y = 0; y < C.H; y++) for (let x = 0; x < C.W; x++) {
         if (!passable(x, y) || C.anoms[k(x, y)] || (x === C.px && y === C.py) || reach.dist[y * C.W + x] === Infinity) continue;
-        cands.push({ x, y, s: (xx ? man(x, y, ...xx) : -man(x, y, C.px, C.py)) + Math.random() * .5 });
+        cands.push({ x, y, s: 0 });
     }
+    const away = cands.filter(c => man(c.x, c.y, C.px, C.py) >= Math.max(6, (C.W + C.H) / 3));
+    const anchor = pick(away.length ? away : cands);
+    if (anchor) cands.forEach(c => { c.s = man(c.x, c.y, anchor.x, anchor.y) + Math.random() * .5; });
     cands.sort((a, b) => a.s - b.s);
     units.forEach((u, i) => { u.id = i + 1; const c = cands[i] || cands[cands.length - 1] || { x: C.W - 1, y: 0 }; u.x = c.x; u.y = c.y; u.wounds = u.wounds || {}; });
     C.target = units.length ? units[0].id : null;
@@ -2502,8 +2508,8 @@ function playerAttack(burst, double) {
     const u = curTarget(); if (!u) return log('Select a target (click it on the grid).', 'warn');
     const dual = !burst && !double && dualReady();
     const cost = double ? wpnCost(3) : attackCost(burst); if (!actOK(cost)) return;
-    const dist = pDist(u), range = melee ? 1 : effRange(w);
-    if (dist > range) return log(`Out of range (${dist} tiles, range ${range}).`, 'warn');
+    const dist = pDist(u);
+    if (melee && dist > 1) return log(`Out of reach (${dist} tiles).`, 'warn');
     if (!hasLoS(C.px, C.py, u.x, u.y)) return log('No line of sight.', 'warn');
     const rounds = melee ? 0 : burst ? burstRounds(wd, b) : double ? 2 : 1;
     if (!melee && w.mag < rounds) return log('Not enough rounds loaded — reload.', 'warn');
@@ -2518,7 +2524,7 @@ function playerAttack(burst, double) {
     if (dual) {
         fireShot(w, u, false, -1);
         const o = offW();
-        if (mode === 'combat' && o && active(u) && o.mag >= 1 && !o.jammed && o.cond !== 'Broken' && pDist(u) <= effRange(o)) fireShot(o, u, false, -1);
+        if (mode === 'combat' && o && active(u) && o.mag >= 1 && !o.jammed && o.cond !== 'Broken') fireShot(o, u, false, -1);
     } else if (double) {
         fireShot(w, u, false, 0);
         if (mode === 'combat' && active(u) && !w.jammed) fireShot(w, u, false, 0);
@@ -2532,6 +2538,7 @@ function fireShot(w, u, burst, mod) {
     let hb = mod + statMod(S.p.stats.A) + RANKS[S.p.rank].mod + (wd.hit || 0) - (wd.recoil ? 1 : 0) + (w.upg.includes('Calibrated') ? 1 : 0);
     if (wd.hitSingle && !burst) hb += 1;
     if (wd.scope && dist >= 10) hb += 1;
+    if (!melee) { const r = effRange(w); if (dist > 2 * r) hb -= 2; else if (dist > r) hb -= 1; } // long shots: −1 to 2× range, −2 beyond
     if (wd.cat === 'shotgun' && dist <= 4) hb += 2;
     if (wd.cat === 'sniper' && has("Marksman's Focus")) hb += 2;
     if (burst) hb += (wd.cat === 'assault' && has('Recoil Control')) || (wd.cat === 'smg' && dist <= 4 && has('Bullet Hose')) ? 0 : b.pen;
@@ -2856,7 +2863,7 @@ function damageUnit(u, dmg, o = {}) {
     } else {
         const m = u.m;
         if (!m.berserk && !u.staggered && !C.enemyPhase && u.dmgTurn >= .4 * u.maxHp) { u.staggered = true; log(`${uname(u)} is STAGGERED — it loses its next turn!`, 'good'); }
-        if (m.panic && u.hp <= m.panic * u.maxHp) { u.gone = true; log(`${uname(u)} PANICS and flees into the Zone!`, 'good'); }
+        if (m.panic && u.hp <= m.panic * u.maxHp && !u.fleeing) { u.fleeing = true; log(`${uname(u)} PANICS and runs for the edge of the area!`, 'good'); }
     }
 }
 function killUnit(u, byPlayer) {
@@ -2894,8 +2901,7 @@ function breakUnit(u) {
     if (u.boss || !active(u)) return;
     u.morale = 'Broken';
     if (u.rank === 6 || d(20) <= 10) {
-        u.gone = true; log(`${uname(u)} BREAKS and flees!`, 'good');
-        if (u.named) addNamed(u.named, C.zone, 'grudge', 'fled');
+        u.fleeing = true; log(`${uname(u)} BREAKS and runs for the edge of the area!`, 'good');
         if (d(20) >= 11) { C.loot.push(...npcWeaponLoot(u), { kind: 'ru', n: 10 + d(41) - 1 }); log('They drop their weapon and loose Ru as they run.', 'good'); }
     } else { u.surrendered = true; log(`${uname(u)} throws down their weapon and SURRENDERS.`, 'gold'); }
     if (u.role === 'Leader') C.units.forEach(a => { if (a !== u && a.kind === 'human') setShaken(a, 'their leader is gone'); });
@@ -2936,7 +2942,8 @@ function enemyRound() {
     log('— Enemy round —', 'dim');
     for (const u of C.units) {
         if (!active(u)) continue;
-        if (u.kind === 'human') actHuman(u); else actMutant(u);
+        if (u.fleeing) fleeStep(u);
+        else if (u.kind === 'human') actHuman(u); else actMutant(u);
         if (mode !== 'combat') return;
     }
     if (C.attacksOnPlayer >= 3 && !C.suppressedNext) { C.suppressedNext = true; log('Under heavy fire — you will be SUPPRESSED.', 'warn'); }
@@ -2944,6 +2951,15 @@ function enemyRound() {
     C.enemyPhase = false;
     C.dodge = null;
     startPlayerTurn();
+}
+// Panicked or broken enemies run for the nearest map edge and escape once they reach it; until then they can be shot.
+function fleeStep(u) {
+    if (npcTurnStart(u) < 0) return;
+    const edge = (x, y) => x === 0 || y === 0 || x === C.W - 1 || y === C.H - 1;
+    npcMoveTo(u, u.mp || 4, edge, (x, y) => -.5 * man(x, y, C.px, C.py));
+    if (!edge(u.x, u.y)) return;
+    u.gone = true; log(`${uname(u)} escapes into the Zone.`);
+    if (u.named) addNamed(u.named, C.zone, 'grudge', 'fled');
 }
 function npcTurnStart(u) {
     if (u.bleed) { log(`${uname(u)} bleeds (−5 HP).`); damageUnit(u, 5, {}); if (!active(u)) return -1; }
@@ -3595,7 +3611,7 @@ function viewCombat() {
     const p = S.p, w = eqW(), wd = eqWD(), hostile = hostilesLeft(), mine = myTurn();
     let h = `<h2 style="text-transform:uppercase" class="combat-title ${hostile ? 'alert' : ''}">${hostile ? 'TACTICAL COMBAT' : 'EXPLORING'} — ${C.lm}, ${C.zone}</h2>`;
     h += `<div class="apbar">Turn ${C.turn} · AP ${C.ap}/${C.apMax} · MP ${C.mp}/${C.mpMax}${C.coverMp ? ` (+${C.coverMp} cover MP)` : ''} · AC ${playerAC()}${C.takeCover ? ' (+2 taking cover)' : ''}${C.evasive ? ' (+2 vs melee)' : ''}</div>`;
-    if (w) h += `<div class="small center">${w.name} (${w.cond})${wd.cal ? ` — ${w.jammed ? '<span class="alert">JAMMED</span>' : `${w.mag}/${capOf(w)} ${AMMO[w.ammo].short}`}, range ${effRange(w)}` : ' — melee'}</div>`;
+    if (w) h += `<div class="small center">${w.name} (${w.cond})${wd.cal ? ` — ${w.jammed ? '<span class="alert">JAMMED</span>' : `${w.mag}/${capOf(w)} ${AMMO[w.ammo].short}`}, range ${effRange(w)} (−1 to ${2 * effRange(w)}, −2 beyond)` : ' — melee'}</div>`;
     const flags = [];
     if (p.st.prone) flags.push('<span class="alert">PRONE</span>');
     if (C.suppressed) flags.push('<span class="warn">SUPPRESSED −2</span>');
@@ -3614,8 +3630,8 @@ function viewCombat() {
         const seen = visible(u), sel = u.id === C.target;
         let info;
         if (!seen) info = `[${i + 1}] Something shimmers — cloaked (Perception DC ${u.m.cloak} to target at range)`;
-        else if (u.kind === 'human') info = `[${i + 1}] ${u.name} · ${u.role} · ${u.hp}/${u.maxHp} HP · ${u.surrendered ? 'SURRENDERED' : u.morale} · ${u.weapon.name} · ${u.armor.name} · dist ${pDist(u)}`;
-        else info = `[${i + 1}] ${u.name} (T${u.tier}, ${u.m.beh}) · ${u.hp}/${u.maxHp} HP${u.staggered ? ' · STAGGERED' : ''}${u.leapReady ? ' · CROUCHING TO LEAP' : ''} · dist ${pDist(u)}`;
+        else if (u.kind === 'human') info = `[${i + 1}] ${u.name} · ${u.role} · ${u.hp}/${u.maxHp} HP · ${u.surrendered ? 'SURRENDERED' : u.fleeing ? 'FLEEING' : u.morale} · ${u.weapon.name} · ${u.armor.name} · dist ${pDist(u)}`;
+        else info = `[${i + 1}] ${u.name} (T${u.tier}, ${u.m.beh}) · ${u.hp}/${u.maxHp} HP${u.staggered ? ' · STAGGERED' : ''}${u.fleeing ? ' · FLEEING' : ''}${u.leapReady ? ' · CROUCHING TO LEAP' : ''} · dist ${pDist(u)}`;
         if (u.surrendered) h += `<div class="row c-dim">${info}</div>`;
         else h += `<div class="row">${B(sel ? '◎' : '○', () => { C.target = u.id; }, { cls: 'inv-btn' })} <span class="${u.kind === 'human' ? 'alert' : 'warn'}">${info}</span></div>`;
     });
