@@ -614,6 +614,7 @@ const PT = {
     'Objective here:': 'Objetivo aqui:', 'Reach the ? on the map and Interact.': 'Chegue ao ? no mapa e use Interagir.', 'find the ? on the map': 'encontre o ? no mapa',
     'PANICS and runs for the edge of the area!': 'ENTRA EM PÂNICO e corre para a borda da área!', 'BREAKS and runs for the edge of the area!': 'SE DESESPERA e corre para a borda da área!', 'escapes into the Zone.': 'escapa para a Zona.', 'FLEEING': 'FUGINDO', 'Out of reach': 'Fora de alcance', 'tiles': 'casas', 'beyond': 'além',
     'reaches the edge of the area — it escapes next turn.': 'chega à borda da área — escapa no próximo turno.',
+    'RIVAL CREW': 'EQUIPE RIVAL',
 };
 // Word-order rules that a phrase table can't express. Run before the phrase pass.
 const PT_RX = [
@@ -1838,7 +1839,7 @@ function buildEnc(spec, z, q) {
     }
     if (q && !q.compApplied && (q.comp === 2 || q.comp === 3)) {
         q.compApplied = true;
-        if (q.comp === 2) { log('COMPLICATION: a rival crew is after the same objective!', 'warn'); units.push(...squad(pick(['Raiders', 'Outcasts']), Math.min(t, 3)).units.slice(0, 2)); }
+        if (q.comp === 2) { log('COMPLICATION: a rival crew is after the same objective!', 'warn'); units.push(...squad(pick(['Raiders', 'Outcasts']), Math.min(t, 3)).units.slice(0, 2).map(r => Object.assign(r, { rival: true }))); }
         else { log('COMPLICATION: not as described — there are more of them!', 'warn'); const f = units[0]; units.push(f.kind === 'mutant' ? mkMutant(f.base) : mkHuman(f.faction, t, f.rank)); }
     }
     setLeader(units);
@@ -2331,13 +2332,19 @@ function enterTactical(zone, lm, units, enc = {}) {
     const cands = [];
     for (let y = 0; y < C.H; y++) for (let x = 0; x < C.W; x++) {
         if (!passable(x, y) || C.anoms[k(x, y)] || (x === C.px && y === C.py) || reach.dist[y * C.W + x] === Infinity) continue;
-        cands.push({ x, y, s: 0 });
+        cands.push({ x, y });
     }
     const away = cands.filter(c => man(c.x, c.y, C.px, C.py) >= Math.max(6, (C.W + C.H) / 3));
-    const anchor = pick(away.length ? away : cands);
-    if (anchor) cands.forEach(c => { c.s = man(c.x, c.y, anchor.x, anchor.y) + Math.random() * .5; });
-    cands.sort((a, b) => a.s - b.s);
-    units.forEach((u, i) => { u.id = i + 1; const c = cands[i] || cands[cands.length - 1] || { x: C.W - 1, y: 0 }; u.x = c.x; u.y = c.y; u.wounds = u.wounds || {}; });
+    // each side starts around its own spot (6+ apart when the map allows), each unit on one of the 6 free cells nearest it
+    const groups = {}, anchors = [], open = cands.slice();
+    units.forEach((u, i) => { u.id = i + 1; u.wounds = u.wounds || {}; (groups[team(u)] = groups[team(u)] || []).push(u); });
+    for (const g of Object.values(groups)) {
+        const apart = away.filter(a => anchors.every(b => man(a.x, a.y, b.x, b.y) >= 6));
+        const anchor = pick(apart.length ? apart : away.length ? away : cands) || { x: C.W - 1, y: 0 };
+        anchors.push(anchor);
+        open.sort((a, b) => man(a.x, a.y, anchor.x, anchor.y) - man(b.x, b.y, anchor.x, anchor.y));
+        g.forEach(u => { const c = open.length ? open.splice(Math.floor(Math.random() * Math.min(open.length, 6)), 1)[0] : anchor; u.x = c.x; u.y = c.y; });
+    }
     C.target = units.length ? units[0].id : null;
     dropQuestSites(objs);
     const free = cands.filter(c => !units.some(u => u.x === c.x && u.y === c.y) && !objs[k(c.x, c.y)]), far = free.filter(c => man(c.x, c.y, C.px, C.py) >= 6);
@@ -2889,7 +2896,7 @@ function killUnit(u, byPlayer) {
     if (u.kind === 'mutant') { pr.mutTier = Math.max(pr.mutTier, u.tier); if (u.namedZone) S.w.namedKilled[u.namedZone] = true; }
     else {
         pr.npcRank = Math.max(pr.npcRank, u.rank);
-        C.killed[u.faction] = (C.killed[u.faction] || 0) + 1;
+        if (!u.npcHit) C.killed[u.faction] = (C.killed[u.faction] || 0) + 1;
         if (u.boss) C.bossDown = true;
         if (u.named) addNamed(u.named, C.zone, 'hostile', 'dead');
         C.units.forEach(a => { if (a !== u && active(a) && a.kind === 'human' && (u.role === 'Leader' || hasLoS(a.x, a.y, u.x, u.y))) setShaken(a, u.role === 'Leader' ? 'their leader fell' : 'an ally died in view'); });
@@ -2961,7 +2968,9 @@ function enemyRound() {
     log('— Enemy round —', 'dim');
     for (const u of C.units) {
         if (!active(u)) continue;
+        const foe = u.fleeing ? null : npcFoe(u);
         if (u.fleeing) fleeStep(u);
+        else if (foe) fightUnit(u, foe);
         else if (u.kind === 'human') actHuman(u); else actMutant(u);
         if (mode !== 'combat') return;
     }
@@ -2970,6 +2979,34 @@ function enemyRound() {
     C.enemyPhase = false;
     C.dodge = null;
     startPlayerTurn();
+}
+// Sides in a fight: the encounter itself, mutants, and a quest's rival crew. Sides other than the player's
+// fight each other too; every NPC goes for whatever hostile is closest, the player included.
+const team = u => (u.rival ? 'rival' : u.kind === 'mutant' ? 'mutant' : 'main');
+function npcFoe(u) {
+    let best = null, bd = pDist(u);
+    for (const o of C.units) if (o !== u && active(o) && visible(o) && team(o) !== team(u)) { const dd = man(u.x, u.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } }
+    return best; // null: the player is closest
+}
+// An NPC fighting another unit: close in, then one plain attack roll (no player-only reactions or DR).
+function fightUnit(u, foe) {
+    if (npcTurnStart(u) < 0) return;
+    if (u.staggered) { u.staggered = false; return; }
+    const wd = u.kind === 'human' ? WEAPONS[u.weapon.name] : null;
+    const range = wd ? (wd.cat === 'melee' ? 1 : wd.range) : (u.m.psi || 1), longOK = wd && wd.cat !== 'melee';
+    const reach = (x, y) => { const dd = man(x, y, foe.x, foe.y); return dd <= 1 || ((longOK || dd <= range) && hasLoS(x, y, foe.x, foe.y)); };
+    npcMoveTo(u, u.kind === 'mutant' ? u.mp : u.mpMax, (x, y) => man(x, y, foe.x, foe.y) <= range && reach(x, y));
+    overwatch(u); if (!active(u) || !active(foe) || !reach(u.x, u.y)) return;
+    if (wd && (u.weapon.jammed || u.weapon.mag < 1)) { u.weapon.jammed = false; u.weapon.mag = wd.cap; log(`${uname(u)} reloads.`); return; }
+    const dist = man(u.x, u.y, foe.x, foe.y), melee = range === 1;
+    const hb = wd ? RANKS[u.rank].mod + (wd.hit || 0) - (melee ? 0 : longShot(dist, range)) : u.m.agi;
+    const r = d(20), tot = r + hb, ac = foe.ac + coverFor(u.x, u.y, foe.x, foe.y, melee).bonus;
+    if (wd && !melee) u.weapon.mag--;
+    const head = `${uname(u)} attacks ${uname(foe)}: ${r}${sgn(hb)} = ${tot} vs AC ${ac}.`;
+    if (r !== 20 && tot < ac) return log(head + ' Miss.');
+    const dmg = Math.max(1, (wd ? Math.floor(wd.dmg * (u.weapon.cond === 'Damaged' ? .75 : 1)) : u.m.dmg) * (r === 20 ? 2 : 1));
+    log(`${head} HIT for ${dmg}.`, 'warn');
+    foe.npcHit = true; damageUnit(foe, dmg, { physical: true }); foe.npcHit = false;
 }
 // Panicked or broken enemies run for the nearest map edge and escape once they reach it; until then they can be shot.
 function fleeStep(u) {
@@ -3661,7 +3698,7 @@ function viewCombat() {
         const seen = visible(u), sel = u.id === C.target;
         let info;
         if (!seen) info = `[${i + 1}] Something shimmers — cloaked (Perception DC ${u.m.cloak} to target at range)`;
-        else if (u.kind === 'human') info = `[${i + 1}] ${u.name} · ${u.role} · ${u.hp}/${u.maxHp} HP · ${u.surrendered ? 'SURRENDERED' : u.fleeing ? 'FLEEING' : u.morale} · ${u.weapon.name} · ${u.armor.name} · dist ${pDist(u)}`;
+        else if (u.kind === 'human') info = `[${i + 1}] ${u.name} · ${u.role} · ${u.hp}/${u.maxHp} HP · ${u.surrendered ? 'SURRENDERED' : u.fleeing ? 'FLEEING' : u.morale}${u.rival ? ' · RIVAL CREW' : ''} · ${u.weapon.name} · ${u.armor.name} · dist ${pDist(u)}`;
         else info = `[${i + 1}] ${u.name} (T${u.tier}, ${u.m.beh}) · ${u.hp}/${u.maxHp} HP${u.staggered ? ' · STAGGERED' : ''}${u.fleeing ? ' · FLEEING' : ''}${u.leapReady ? ' · CROUCHING TO LEAP' : ''} · dist ${pDist(u)}`;
         if (u.surrendered) h += `<div class="row c-dim">${info}</div>`;
         else h += `<div class="row">${B(sel ? '◎' : '○', () => { C.target = u.id; }, { cls: 'inv-btn' })} <span class="${u.kind === 'human' ? 'alert' : 'warn'}">${info}</span></div>`;

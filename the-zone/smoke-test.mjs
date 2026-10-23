@@ -230,6 +230,22 @@ const misc = await ev(() => {
 });
 misc.forEach(fail);
 
+// Three-way fights: a quest's rival crew and the mutants attack whichever hostile is closest, each other included.
+const threeWay = await ev(() => {
+    mode = 'world'; S.w.zone = 'The Perimeter'; S.p.hp = 100;
+    const muts = [mkMutant('Flesh Stalker'), mkMutant('Flesh Stalker')], rivals = squad('Outcasts', 1).units.slice(0, 2).map(r => Object.assign(r, { rival: true }));
+    [...muts, ...rivals].forEach(u => { u.hp = u.maxHp = 9999; if (u.m) u.m = { ...u.m, panic: 0 }; });
+    enterTactical('The Perimeter', 'Checkpoint Gate', [...muts, ...rivals]);
+    const gap = Math.min(...muts.flatMap(m => rivals.map(r => man(m.x, m.y, r.x, r.y))));
+    let infight = 0; const orig = log;
+    log = (m, c) => { if (/\] .* attacks \[\d\]/.test(m)) infight++; orig(m, c); };
+    try { for (let i = 0; i < 12 && mode === 'combat'; i++) { S.p.hp = 9999; [C.px, C.py] = [0, 0]; endTurn(); } } finally { log = orig; }
+    if (mode === 'combat') leaveArea(true);
+    S.p.hp = 100; mode = 'world';
+    return infight ? (gap < 3 ? `rivals spawned on top of the mutants (gap ${gap})` : '') : 'rivals and mutants never fought each other';
+});
+if (threeWay) fail(threeWay);
+
 // Skill-check objectives can be attempted from the Camp/Zone screen, not only the Quests tab.
 const skillBtn = await ev(() => {
     mode = 'world'; S.w.zone = 'The Perimeter'; tab = 'camp';
