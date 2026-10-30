@@ -230,6 +230,20 @@ const misc = await ev(() => {
 });
 misc.forEach(fail);
 
+// Line of sight is mutual: if an enemy can see you, you can see it.
+const losErr = await ev(() => {
+    for (const z in ZONES) for (const [lm] of ZONES[z].lms) {
+        enterTactical(z, lm, []);
+        for (let i = 0; i < 300; i++) {
+            const a = [Math.floor(Math.random() * C.W), Math.floor(Math.random() * C.H)], b = [Math.floor(Math.random() * C.W), Math.floor(Math.random() * C.H)];
+            if (hasLoS(...a, ...b) !== hasLoS(...b, ...a)) { const r = `line of sight one-way in ${z}/${lm}: ${a} vs ${b}`; leaveArea(true); return r; }
+        }
+        leaveArea(true);
+    }
+    mode = 'world'; return '';
+});
+if (losErr) fail(losErr);
+
 // Three-way fights: a quest's rival crew and the mutants attack whichever hostile is closest, each other included.
 const threeWay = await ev(() => {
     mode = 'world'; S.w.zone = 'The Perimeter'; S.p.hp = 100;

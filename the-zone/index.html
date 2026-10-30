@@ -2208,6 +2208,7 @@ function lineTiles(x0, y0, x1, y1) {
     return out;
 }
 function hasLoS(x0, y0, x1, y1) {
+    if (x0 > x1 || (x0 === x1 && y0 > y1)) [x0, y0, x1, y1] = [x1, y1, x0, y0]; // trace one way only, so sight is mutual
     if (smokeAt(x0, y0) || smokeAt(x1, y1)) return false;
     for (const t of lineTiles(x0, y0, x1, y1)) {
         if (t.corner) { if (t.corner.every(([cx, cy]) => blocksLoS(cx, cy))) return false; }
