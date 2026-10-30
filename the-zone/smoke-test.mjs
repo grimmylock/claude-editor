@@ -230,6 +230,26 @@ const misc = await ev(() => {
 });
 misc.forEach(fail);
 
+// Only half the enemies (rounded up) attack the player per round; the rest hold, and they swap next round.
+const halfErr = await ev(() => {
+    mode = 'world'; S.w.zone = 'The Perimeter';
+    const sq = Array.from({ length: 4 }, () => mkHuman('Outcasts', 2, 1));
+    sq.forEach(u => { u.hp = u.maxHp = 9999; u.morale = 'Steady'; });
+    enterTactical('The Perimeter', 'Checkpoint Gate', sq);
+    const out = []; let swapped = true;
+    for (let r = 0; r < 4 && mode === 'combat'; r++) {
+        S.p.hp = 9999; const before = sq.filter(u => u.held);
+        C.ap = 0; endTurn();
+        if (C.attacksOnPlayer > 2) out.push(`round ${r}: ${C.attacksOnPlayer} of 4 enemies attacked`);
+        if (r && before.some(u => u.held)) swapped = false;
+    }
+    if (!swapped) out.push('enemies that held did not get to attack next round');
+    if (mode === 'combat') leaveArea(true);
+    S.p.hp = 100; mode = 'world';
+    return out.join('; ');
+});
+if (halfErr) fail(halfErr);
+
 // Line of sight is mutual: if an enemy can see you, you can see it.
 const losErr = await ev(() => {
     for (const z in ZONES) for (const [lm] of ZONES[z].lms) {

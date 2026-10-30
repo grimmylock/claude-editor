@@ -615,6 +615,7 @@ const PT = {
     'PANICS and runs for the edge of the area!': 'ENTRA EM PÂNICO e corre para a borda da área!', 'BREAKS and runs for the edge of the area!': 'SE DESESPERA e corre para a borda da área!', 'escapes into the Zone.': 'escapa para a Zona.', 'FLEEING': 'FUGINDO', 'Out of reach': 'Fora de alcance', 'tiles': 'casas', 'beyond': 'além',
     'reaches the edge of the area — it escapes next turn.': 'chega à borda da área — escapa no próximo turno.',
     'RIVAL CREW': 'EQUIPE RIVAL',
+    'circles you, looking for an opening.': 'circula você, procurando uma brecha.', 'moves to flank you': 'avança para flanquear você', 'repositions': 'se reposiciona', 'and clears a jam.': 'e desobstrui a arma.', 'and reloads.': 'e recarrega.', 'and takes aim.': 'e faz mira.',
 };
 // Word-order rules that a phrase table can't express. Run before the phrase pass.
 const PT_RX = [
@@ -2967,11 +2968,15 @@ function enemyRound() {
     C.sameCover = onCov ? (C.lastCover === key ? C.sameCover + 1 : 1) : 0;
     C.lastCover = onCov ? key : null;
     log('— Enemy round —', 'dim');
+    // Only half the enemies (rounded up) may attack the player each round; those who held last round go first.
+    const fighters = C.units.filter(u => active(u) && !u.fleeing).map(u => [u, Math.random()]).sort((a, b) => (b[0].held ? 1 : 0) - (a[0].held ? 1 : 0) || a[1] - b[1]).map(e => e[0]);
+    fighters.forEach((u, i) => { u.mayAttack = i < Math.ceil(fighters.length / 2); u.held = !u.mayAttack; });
     for (const u of C.units) {
         if (!active(u)) continue;
         const foe = u.fleeing ? null : npcFoe(u);
         if (u.fleeing) fleeStep(u);
         else if (foe) fightUnit(u, foe);
+        else if (!u.mayAttack) npcHold(u);
         else if (u.kind === 'human') actHuman(u); else actMutant(u);
         if (mode !== 'combat') return;
     }
@@ -3008,6 +3013,27 @@ function fightUnit(u, foe) {
     const dmg = Math.max(1, (wd ? Math.floor(wd.dmg * (u.weapon.cond === 'Damaged' ? .75 : 1)) : u.m.dmg) * (r === 20 ? 2 : 1));
     log(`${head} HIT for ${dmg}.`, 'warn');
     foe.npcHit = true; damageUnit(foe, dmg, { physical: true }); foe.npcHit = false;
+}
+// An enemy not attacking the player this round: gunmen move to flank (else to cover in range) and then
+// clear a jam, reload or take aim (+2 on their next shot); mutants circle 2-3 tiles out looking for an opening.
+function npcHold(u) {
+    if (npcTurnStart(u) < 0) return;
+    if (u.staggered) { u.staggered = false; log(`${uname(u)} reels, recovering from the stagger.`); return; }
+    if (u.kind === 'mutant') {
+        npcMoveTo(u, Math.max(0, u.mp - (u.mpDrain || 0)), (x, y) => { const dd = man(x, y, C.px, C.py); return dd >= 2 && dd <= 3; }, (x, y) => -man(x, y, u.x, u.y));
+        u.mpDrain = 0; overwatch(u); if (!active(u)) return;
+        return log(`${uname(u)} circles you, looking for an opening.`);
+    }
+    const wd = WEAPONS[u.weapon.name];
+    let mp = u.mpMax; if (wd.cat === 'heavy') mp = Math.min(mp, 2); if (u.wounds.leg) mp = Math.max(1, mp - 2);
+    mp = Math.max(0, mp - (u.mpDrain || 0)); u.mpDrain = 0;
+    const flank = (x, y) => canShootFrom(u, x, y) && coverFor(x, y, C.px, C.py, false).flanked;
+    npcMoveTo(u, mp, flank, (x, y) => (nearCover(x, y) ? -2 : 0));
+    overwatch(u); if (!active(u)) return;
+    const how = flank(u.x, u.y) ? 'moves to flank you' : 'repositions';
+    if (u.weapon.jammed) { u.weapon.jammed = false; log(`${uname(u)} ${how} and clears a jam.`); }
+    else if (wd.cat !== 'melee' && u.weapon.mag < wd.cap) { u.weapon.mag = wd.cap; log(`${uname(u)} ${how} and reloads.`); }
+    else { u.aim = 2; log(`${uname(u)} ${how} and takes aim.`); }
 }
 // Panicked or broken enemies run for the nearest map edge and escape once they reach it; until then they can be shot.
 function fleeStep(u) {
