@@ -2826,7 +2826,7 @@ function detonate(type, thrower, tx, ty) {
 function blastPlayer(type) {
     const d0 = D(), r = d(20), m = statMod(S.p.stats.A), save = r + m >= 13;
     if (type === 'Flashbang') { if (save) log('You turn away from the flash.'); else { addDrain(2); log('BLINDED by the flashbang: −2 AP next turn.', 'warn'); } return; }
-    let dmg = Math.max(1, Math.round(40 * (1 - playerDR('phys'))));
+    let dmg = Math.max(1, Math.round(40 * (C.enemyPhase ? NPC_DMG : 1) * (1 - playerDR('phys'))));
     if (save) { dmg = Math.max(1, Math.round(dmg / 2)); if (!d0.noProne) S.p.st.prone = true; }
     hurtPlayer(dmg, { msg: `Shrapnel tears into you: −${dmg} HP${save ? ' (dove flat — PRONE)' : ''}.`, physical: true });
 }
@@ -2840,6 +2840,9 @@ function blastUnit(type, u, fromP) {
 }
 
 // ===================== TACTICAL: DAMAGE & MORALE =====================
+// Balance: the player fights whole squads alone, so enemy attacks on the player deal this share of their
+// listed damage (before armor). NPC-vs-NPC and player attacks use full damage.
+const NPC_DMG = 0.6;
 function hurtPlayer(dmg, o = {}) {
     const p = S.p; let left = dmg;
     if (p.temp > 0) { const a = Math.min(p.temp, left); p.temp -= a; left -= a; }
@@ -3082,7 +3085,7 @@ function npcAttack(u, burst) {
         log(head + ' Miss.'); return;
     }
     const crit = r.die === 20 && !D().noCrit;
-    const dmg = calcDamage({ base: Math.floor(wd.dmg * (u.weapon.cond === 'Damaged' ? .75 : 1)), crit, mult: burst ? b.mult : 1, ammo: 'Standard', dr: playerDR('phys'), ignore: wd.ignore || 0 });
+    const dmg = calcDamage({ base: wd.dmg * (u.weapon.cond === 'Damaged' ? .75 : 1) * NPC_DMG, crit, mult: burst ? b.mult : 1, ammo: 'Standard', dr: playerDR('phys'), ignore: wd.ignore || 0 });
     hurtPlayer(dmg, { msg: head + ` HIT for ${dmg}${crit ? ' (CRITICAL)' : ''}.`, physical: true, crit: r.die === 20, woundAt: wd.woundAt || 20 });
 }
 function actMutant(u) {
@@ -3129,7 +3132,7 @@ function leapAttack(u) {
 }
 function groundSlam(u) {
     u.slamUsed = true; C.attacksOnPlayer++;
-    const r = d(20), m = statMod(S.p.stats.A), dmg = Math.max(1, Math.round(30 * (1 - playerDR('phys', 'mutant'))));
+    const r = d(20), m = statMod(S.p.stats.A), dmg = Math.max(1, Math.round(30 * NPC_DMG * (1 - playerDR('phys', 'mutant'))));
     log(`${uname(u)} [Berserk] GROUND SLAM!`, 'alert');
     if (hurtPlayer(dmg, { msg: `The shockwave hits you for ${dmg}.`, physical: true })) return;
     if (r + m < 13 && !D().noProne) { S.p.st.prone = true; log(`Knocked PRONE (Agility ${r}${sgn(m)} vs DC 13).`, 'warn'); }
@@ -3149,7 +3152,7 @@ function mutantAttack(u, adv) {
     if (r.die !== 20 && tot < ac) { log(head + ' Miss.'); return; }
     const crit = r.die === 20 && !D().noCrit;
     if (psi) {
-        const dmg = Math.max(1, Math.ceil(m.dmg * (crit ? 2 : 1) * (1 - playerDR('anom', 'psi'))));
+        const dmg = Math.max(1, Math.ceil(m.dmg * NPC_DMG * (crit ? 2 : 1) * (1 - playerDR('anom', 'psi'))));
         if (hurtPlayer(dmg, { msg: `${head} ${dmg} psi damage!` })) return;
         if (m.neural) { const s = d(20) + statMod(S.p.stats.I); if (s < m.neural) { addDrain(1); log(`Neural overload (Int ${s} vs DC ${m.neural}): −1 AP next turn.`, 'warn'); } }
         return;
@@ -3161,7 +3164,7 @@ function mutantAttack(u, adv) {
         log(`Desperate Parry fails (${pr + pm} vs DC 14).`, 'warn');
     }
     const dr = playerDR('phys', 'mutant') * (1 - (m.ignore || 0));
-    const dmg = Math.max(1, Math.round(m.dmg * (crit ? 2 : 1) * (1 - dr)));
+    const dmg = Math.max(1, Math.round(m.dmg * NPC_DMG * (crit ? 2 : 1) * (1 - dr)));
     if (hurtPlayer(dmg, { msg: `${head} HIT for ${dmg}${crit ? ' (CRITICAL)' : ''}.`, physical: true, crit: r.die === 20 })) return;
     if (m.toxicBite && d(20) >= m.toxicBite) { if (D().noToxic) log('Its bite fails to pierce your suit seals.'); else { S.p.st.toxic = true; log('Toxic bite: TOXIC BLEED.', 'alert'); } }
     if (m.bleedOn && d(20) >= m.bleedOn) { S.p.st.bleed = true; log('Its claws open you up: BLEEDING.', 'alert'); }
