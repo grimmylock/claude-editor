@@ -616,6 +616,7 @@ const PT = {
     'reaches the edge of the area — it escapes next turn.': 'chega à borda da área — escapa no próximo turno.',
     'RIVAL CREW': 'EQUIPE RIVAL',
     'circles you, looking for an opening.': 'circula você, procurando uma brecha.', 'moves to flank you': 'avança para flanquear você', 'repositions': 'se reposiciona', 'and clears a jam.': 'e desobstrui a arma.', 'and reloads.': 'e recarrega.', 'and takes aim.': 'e faz mira.',
+    'Gear': 'Equipamento', 'None.': 'Nenhuma.',
 };
 // Word-order rules that a phrase table can't express. Run before the phrase pass.
 const PT_RX = [
@@ -3413,6 +3414,15 @@ function renderLeft() {
         const frags = [['Alpha', w.story.alpha], ['Beta', w.story.beta], ['Gamma', w.story.gamma]].filter(f => f[1]).map(f => f[0]);
         if (frags.length) h += `<div class="stat-bar small good">Fragments: ${frags.join(' · ')}</div>`;
     }
+    h += '<h3>Gear</h3>';
+    p.weapons.forEach(x => {
+        const wd = WEAPONS[x.name], eq = x.id === p.eq;
+        h += `<div class="inv-item"><span${eq ? ' class="good"' : ''}>${eq ? '▸ ' : ''}${x.name} (${x.cond})${wd.cal ? ` — ${x.mag}/${capOf(x)} ${AMMO[x.ammo].short}` : ''}</span>${eq || mode === 'combat' ? '' : B('Equip', () => equipWeapon(x.id), { cls: 'inv-btn' })}</div>`;
+    });
+    if (p.armor) h += `<div class="inv-item"><span>[Worn] ${p.armor.name} (${p.armor.cond})${p.armor.mods.length ? ` + ${p.armor.mods.join(', ')}` : ''}</span></div>`;
+    p.spareArmor.forEach((a, i) => { h += `<div class="inv-item"><span>${a.name} (${a.cond})</span>${mode === 'combat' ? '' : B('Wear', () => wearArmor(i), { cls: 'inv-btn' })}</div>`; });
+    if (p.detector) h += `<div class="inv-item"><span>Detector: ${p.detector}</span></div>`;
+    if (p.backpack) h += `<div class="inv-item"><span>Pack: ${p.backpack}</span></div>`;
     h += '<h3>Inventory</h3>';
     const items = Object.keys(p.inv).sort();
     if (!items.length) h += '<div class="muted small">Empty.</div>';
@@ -3423,9 +3433,10 @@ function renderLeft() {
         else if (DETECTORS[n] && mode !== 'combat') btn = B('Equip', () => equipDetector(n), { cls: 'inv-btn' });
         h += `<div class="inv-item"><span${itemDef(n).quest ? ' class="gold"' : ''}>${n}: ${p.inv[n]}</span>${btn}</div>`;
     });
-    const ammo = [];
-    for (const cal in p.ammo) for (const t in p.ammo[cal]) if (p.ammo[cal][t]) ammo.push(`${cal} ${AMMO[t].short} ×${p.ammo[cal][t]}`);
-    if (ammo.length) h += `<div class="stat-bar small muted">Ammo: ${ammo.join(' · ')}</div>`;
+    h += '<h3>Ammo</h3>';
+    let anyAmmo = false;
+    for (const cal in p.ammo) for (const t in p.ammo[cal]) if (p.ammo[cal][t]) { anyAmmo = true; h += `<div class="inv-item"><span>${cal} ${AMMO[t].short}: ${p.ammo[cal][t]}</span></div>`; }
+    if (!anyAmmo) h += '<div class="muted small">None.</div>';
     if (p.arts.length || p.belt.length) h += `<div class="stat-bar small" style="color:#ff88ff">Artifacts: ${[...p.belt.map(n => n + ' (worn)'), ...p.arts].join(', ')}</div>`;
     return h;
 }
